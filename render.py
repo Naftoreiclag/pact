@@ -14,6 +14,10 @@ class Renderer:
 		
 	def __del__(self):
 		self._cleanup_buffers()
+		
+	def resize(self, new_width, new_height):
+		self._cleanup_buffers()
+		self._make_buffers(new_width, new_height)
 
 	def _make_buffers(self, width, height):
 		if self._gl_fb_canvas is not None:

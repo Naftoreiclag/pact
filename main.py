@@ -10,23 +10,31 @@ def main():
 	glfw_win = render.opengl_context_init()
 	
 	tk_canvas = tkinter.Canvas(tk_root, width=500, height=500, bg='black')
-	tk_canvas.pack(expand=tkinter.YES, fill=tkinter.BOTH)
+	tk_canvas.pack(expand=True, fill='both')
 	
 	renderer = render.Renderer()
+	
+	def on_canvas_reconfig(event):
+		width = event.width
+		height = event.height
+		
+		renderer.resize(width, height)
+		image = renderer.render()
+		
+		tk_image = ImageTk.PhotoImage(image)
+		tk_canvas.usr_image_ref = tk_image
+		tk_canvas.delete('all')
+		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+		
+	tk_canvas.bind('<Configure>', on_canvas_reconfig)
 
 	def clicky():
 		image = renderer.render()
 
-		tkimage = ImageTk.PhotoImage(image)
-		
-		if False:
-			label = tkinter.Label(tk_root, image=tkimage)
-			label.james_image_reference = tkimage
-			label.pack()
-		
-		tk_canvas.j_image_ref = tkimage
-		tk_canvas.delete(tkinter.ALL)
-		tk_canvas.create_image(0, 0, image=tkimage)
+		tk_image = ImageTk.PhotoImage(image)
+		tk_canvas.usr_image_ref = tk_image
+		tk_canvas.delete('all')
+		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
 
 	button = tkinter.Button(tk_root, text='clicky', command=clicky)
 	button.pack()
