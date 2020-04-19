@@ -124,3 +124,19 @@ def opengl_context_cleanup(glfw_win):
 	glfw.destroy_window(glfw_win)
 	glfw.terminate()
 
+
+if __name__ == '__main__':
+	
+	# Profiling
+	
+	import cProfile
+	
+	ctx = opengl_context_init()
+	
+	r = Renderer()
+	
+	cProfile.run('r.render()')
+	
+	del r
+	
+	opengl_context_cleanup(ctx)
