@@ -72,6 +72,13 @@ class Renderer:
 		return image
 
 	def render(self):
+		self._draw_to_buffer()
+
+		# Download from device and return
+		image = self._download_buffer_contents()
+		return image
+
+	def _draw_to_buffer(self):
 		# Select our canvas
 		glBindFramebuffer(GL_FRAMEBUFFER, self._gl_fb_canvas)
 		
@@ -94,10 +101,7 @@ class Renderer:
 			glVertex2d(rand(), rand())
 		glEnd()
 		glFlush()
-
-		# Download from device and return
-		image = self._download_buffer_contents()
-		return image
+		
 
 def opengl_context_init():
 	# Try init
