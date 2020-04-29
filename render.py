@@ -6,20 +6,38 @@ from PIL import Image
 
 import random
 
+def make_shader(shader_src, shader_type):
+	gl_shader = glCreateShader(shader_type)
+	glShaderSource(gl_shader, shader_src)
+	glCompileShader(gl_shader)
+	compile_msg = glGetShaderInfoLog(gl_shader)
+	
+	return gl_shader, compile_msg
+
+def make_shader_program(gl_vert_shader, gl_frag_shader):
+	gl_prog = glCreateProgram()
+	glAttachShader(gl_prog, gl_vert_shader)
+	glAttachShader(gl_prog, gl_frag_shader)
+	glLinkProgram(gl_prog)
+	compile_msg = glGetProgramInfoLog(gl_prog)
+	
+	return gl_prog, compile_msg
+
 class Renderer:
 	
 	def __init__(self):
 		self._gl_fb_canvas = None
-		self._make_buffers(500, 500)
+		self._init_buffers(500, 500)
+		self._init_shaders()
 		
 	def __del__(self):
 		self._cleanup_buffers()
 		
 	def resize(self, new_width, new_height):
 		self._cleanup_buffers()
-		self._make_buffers(new_width, new_height)
+		self._init_buffers(new_width, new_height)
 
-	def _make_buffers(self, width, height):
+	def _init_buffers(self, width, height):
 		if self._gl_fb_canvas is not None:
 			raise RuntimeError('Attempted to overwrite FBO!')
 			
@@ -43,7 +61,30 @@ class Renderer:
 		glBindRenderbuffer(GL_RENDERBUFFER, self._gl_rb_depth)
 		glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, self._buff_width, self._buff_height)
 		glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, self._gl_rb_depth)
+	
+	def _init_shaders(self):
+		vert_shader_src = """
+		attribute vec3 in_pos;
+
+		void main() {
+			gl_Position = vec4(in_pos, 1.0);
+		}
+		"""
+		frag_shader_src = """
+		void main() {
+			gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+		}
+		"""
 		
+		self._gl_vert_shader, msg = make_shader(vert_shader_src, GL_VERTEX_SHADER)
+		print("Vert shader msg: {}".format(msg))
+		self._gl_frag_shader, msg = make_shader(frag_shader_src, GL_FRAGMENT_SHADER)
+		print("Frag shader msg: {}".format(msg))
+		
+		self._gl_shader_program, msg = make_shader_program(self._gl_vert_shader, self._gl_frag_shader)
+		print("Linking shader msg: {}".format(msg))
+		
+	
 	def _cleanup_buffers(self):
 		# Delete everything in opposite order
 		glDeleteRenderbuffers(1, self._gl_rb_depth)
