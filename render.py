@@ -32,6 +32,7 @@ class Renderer:
 		
 	def __del__(self):
 		self._cleanup_buffers()
+		self._cleanup_shaders()
 		
 	def resize(self, new_width, new_height):
 		self._cleanup_buffers()
@@ -83,6 +84,14 @@ class Renderer:
 		
 		self._gl_shader_program, msg = make_shader_program(self._gl_vert_shader, self._gl_frag_shader)
 		print("Linking shader msg: {}".format(msg))
+		
+	def _cleanup_shaders(self):
+		glDeleteProgram(self._gl_shader_program)
+		glDeleteShader(self._gl_vert_shader)
+		glDeleteShader(self._gl_frag_shader)
+		# Note, you can technically delete the shaders as soon as the 
+		# shader program is linked, but I do it here just for consistency's
+		# sake.
 		
 	
 	def _cleanup_buffers(self):
