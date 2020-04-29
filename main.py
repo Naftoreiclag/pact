@@ -48,7 +48,7 @@ def main():
 		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
 		print("update canvas:", (time.time() - start)*1000)
 		tk_root.after(10, update_canvas)
-	tk_root.after(10, update_canvas)
+	#tk_root.after(10, update_canvas)
 
 	button = tkinter.Button(tk_root, text='clicky', command=clicky)
 	button.pack()

@@ -1,4 +1,6 @@
 from OpenGL.GL import *
+from OpenGL.GL import shaders
+from OpenGL.arrays import vbo
 from OpenGL.GLU import *
 import glfw
 
@@ -65,25 +67,22 @@ class Renderer:
 	
 	def _init_shaders(self):
 		vert_shader_src = """
-		attribute vec3 in_pos;
-
+		#version 120
 		void main() {
-			gl_Position = vec4(in_pos, 1.0);
+			gl_Position = gl_ModelViewProjectionMatrix * gl_Vertex;
 		}
 		"""
 		frag_shader_src = """
+		#version 120
 		void main() {
 			gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
 		}
 		"""
 		
-		self._gl_vert_shader, msg = make_shader(vert_shader_src, GL_VERTEX_SHADER)
-		print("Vert shader msg: {}".format(msg))
-		self._gl_frag_shader, msg = make_shader(frag_shader_src, GL_FRAGMENT_SHADER)
-		print("Frag shader msg: {}".format(msg))
+		self._gl_vert_shader = shaders.compileShader(vert_shader_src, GL_VERTEX_SHADER)
+		self._gl_frag_shader = shaders.compileShader(frag_shader_src, GL_FRAGMENT_SHADER)
 		
-		self._gl_shader_program, msg = make_shader_program(self._gl_vert_shader, self._gl_frag_shader)
-		print("Linking shader msg: {}".format(msg))
+		self._gl_shader_program = shaders.compileProgram(self._gl_vert_shader, self._gl_frag_shader)
 		
 	def _cleanup_shaders(self):
 		glDeleteProgram(self._gl_shader_program)
