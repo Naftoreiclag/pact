@@ -2,28 +2,12 @@ from OpenGL.GL import *
 from OpenGL.GL import shaders
 from OpenGL.arrays import vbo
 from OpenGL.GLU import *
+import numpy as np
 import glfw
 
 from PIL import Image
 
 import random
-
-def make_shader(shader_src, shader_type):
-	gl_shader = glCreateShader(shader_type)
-	glShaderSource(gl_shader, shader_src)
-	glCompileShader(gl_shader)
-	compile_msg = glGetShaderInfoLog(gl_shader)
-	
-	return gl_shader, compile_msg
-
-def make_shader_program(gl_vert_shader, gl_frag_shader):
-	gl_prog = glCreateProgram()
-	glAttachShader(gl_prog, gl_vert_shader)
-	glAttachShader(gl_prog, gl_frag_shader)
-	glLinkProgram(gl_prog)
-	compile_msg = glGetProgramInfoLog(gl_prog)
-	
-	return gl_prog, compile_msg
 
 class Renderer:
 	
@@ -31,6 +15,14 @@ class Renderer:
 		self._gl_fb_canvas = None
 		self._init_buffers(500, 500)
 		self._init_shaders()
+	
+		def rand():
+			return random.random()*2 - 1
+		self._gl_vbo = vbo.VBO(np.array([
+			[rand(), rand(), 0],
+			[rand(), rand(), 0],
+			[rand(), rand(), 0],
+			], dtype=np.float32))
 		
 	def __del__(self):
 		self._cleanup_buffers()
@@ -138,18 +130,13 @@ class Renderer:
 		# Set up perspective
 		gluOrtho2D(-1.0, 1.0, -1.0, 1.0)
 		glViewport(0, 0, self._buff_width, self._buff_height)
-
-		# Immediate mode draw
-		glBegin(GL_TRIANGLES)
-		def rand():
-			return random.random()*2 - 1
-		for i in range(1000):
-			glColor(random.random(), random.random(), random.random())
-			glVertex2d(rand(), rand())
-			glVertex2d(rand(), rand())
-			glVertex2d(rand(), rand())
-		glEnd()
-		glFlush()
+		
+		shaders.glUseProgram(self._gl_shader_program)
+		self._gl_vbo.bind()
+		glEnableClientState(GL_VERTEX_ARRAY)
+		glVertexPointerf(self._gl_vbo)
+		glDrawArrays(GL_TRIANGLES, 0, 9)
+		self._gl_vbo.unbind()
 		
 
 def opengl_context_init():
