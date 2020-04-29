@@ -85,11 +85,13 @@ class Renderer:
 
 		# Immediate mode draw
 		glBegin(GL_TRIANGLES)
-		for i in range(10):
+		def rand():
+			return random.random()*2 - 1
+		for i in range(1000):
 			glColor(random.random(), random.random(), random.random())
-			glVertex2d(random.random(), random.random())
-			glVertex2d(random.random(), random.random())
-			glVertex2d(random.random(), random.random())
+			glVertex2d(rand(), rand())
+			glVertex2d(rand(), rand())
+			glVertex2d(rand(), rand())
 		glEnd()
 		glFlush()
 
