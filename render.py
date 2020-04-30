@@ -23,6 +23,8 @@ class Renderer:
 			[rand(), rand(), 0],
 			[rand(), rand(), 0],
 			], dtype=np.float32))
+			
+		#self._gl_texture = load_texture('test_texture.png')
 		
 	def __del__(self):
 		self._cleanup_buffers()
@@ -131,6 +133,10 @@ class Renderer:
 		gluOrtho2D(-1.0, 1.0, -1.0, 1.0)
 		glViewport(0, 0, self._buff_width, self._buff_height)
 		
+		# Load texture
+		#glEnable(GL_TEXTURE_2D)
+		#glBindTexture(GL_TEXTURE_2D, self._gl_texture)
+		
 		shaders.glUseProgram(self._gl_shader_program)
 		self._gl_vbo.bind()
 		glEnableClientState(GL_VERTEX_ARRAY)
@@ -138,6 +144,22 @@ class Renderer:
 		glDrawArrays(GL_TRIANGLES, 0, 9)
 		self._gl_vbo.unbind()
 		
+
+def load_texture(fname):
+	img = Image.open(fname)
+	size_x = img.size[0]
+	size_y = img.size[1]
+	img_data = img.tostring("raw", "RGBA", 0, -1)
+	
+	gl_tex = glGenTextures(1)
+	glBindTexture(GL_TEXTURE_2D, gl_tex)
+	glPixelStorei(GL_UNPACK_ALIGNMENT,1)
+	glTexImage2D(GL_TEXTURE_2D, 0, 3, size_x, size_y, 0, GL_RGBA, GL_UNSIGNED_BYTE, img_data)
+	
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST)
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST)
+	
+	return gl_tex
 
 def opengl_context_init():
 	# Try init
