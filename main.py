@@ -6,9 +6,6 @@ import time
 def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
-
-	# Needs to happen after tk init for some reason
-	glfw_win = render.opengl_context_init()
 	
 	tk_canvas = tkinter.Canvas(tk_root, width=800, height=600, bg='black')
 	tk_canvas.pack(expand=True, fill='both')
@@ -53,7 +50,6 @@ def main():
 	button = tkinter.Button(tk_root, text='clicky', command=clicky)
 	button.pack()
 	tk_root.mainloop()
-	render.opengl_context_cleanup(glfw_win)
 
 	print('application closed')
 
