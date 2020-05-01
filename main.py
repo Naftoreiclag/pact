@@ -24,7 +24,19 @@ def main():
 		tk_canvas.delete('all')
 		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
 		
+	def on_canvas_press_m1(event):
+		print('Press', event.x, event.y)
+		
+	def on_canvas_drag_m1(event):
+		print('Drag', event.x, event.y)
+		
+	def on_canvas_release_m1(event):
+		print('Release', event.x, event.y)
+		
 	tk_canvas.bind('<Configure>', on_canvas_reconfig)
+	tk_canvas.bind('<ButtonPress-1>', on_canvas_press_m1)
+	tk_canvas.bind('<B1-Motion>', on_canvas_drag_m1)
+	tk_canvas.bind('<ButtonRelease-1>', on_canvas_release_m1)
 
 	def clicky():
 		image = renderer.render()
