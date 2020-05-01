@@ -56,6 +56,8 @@ class Renderer:
 		
 		self.pano_objs = []
 		
+		self._init_pano_obj_fbo()
+		
 		# TODO flip z axis afterwards
 		
 		matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
@@ -86,11 +88,7 @@ class Renderer:
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))
 		
-	def resize(self, new_width, new_height):
-		self._init_fbo(new_width, new_height)
-
-	def render(self):
-
+	def _init_pano_obj_fbo(self):
 		vert_buff = np.array([
 			[0, 0, 0, 0, 0],
 			[1, 0, 0, 1, 0],
@@ -100,13 +98,23 @@ class Renderer:
 			[0, 1, 0, 0, 1],
 			[1, 0, 0, 1, 0],
 		])
+		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
+		self.pano_obj_vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
+		
+		
+	def resize(self, new_width, new_height):
+		self._init_fbo(new_width, new_height)
+
+	def get_world_coordinates(self, canvas_x, canvas_y):
+		pass
+
+	def render(self):
 
 		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
 		mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, 1), (0, 1, 0)).T
 		mat_viewproj = mat_proj @ mat_view
 		
-		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
-		vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
+		
 
 		self.fbo.use()
 		self.fbo.clear(0.4, 0.5, 0.6, 1.0)
@@ -115,7 +123,7 @@ class Renderer:
 			mat_mvp = mat_viewproj @ pano_obj.model_matr
 			self.shader_program['unif_mvp'].write(mat_mvp.T.astype(np.float32).tobytes())
 			pano_obj.texture.use()
-			vao.render(moderngl.TRIANGLES)
+			self.pano_obj_vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
 		return image
