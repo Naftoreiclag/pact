@@ -6,6 +6,12 @@ from PIL import Image
 
 import random
 
+class PanoObj:
+	
+	def __init__(self, image, homography):
+		self.image = image
+		self.homography = homography
+
 class Renderer:
 	
 	def __init__(self):
@@ -17,15 +23,12 @@ class Renderer:
 				uniform mat4 unif_mvp;
 
 				in vec3 in_pos;
-				in vec3 in_color;
+				in vec2 in_uv;
 
-				out vec3 vert_color;
 				out vec2 vert_uv;
 
 				void main() {
-					vert_color = in_color;
-					vert_uv = in_pos.xy;
-					//gl_Position = vec4(in_pos, unif_mvp[0][0] * 0 + 1);
+					vert_uv = in_uv;
 					gl_Position = unif_mvp * vec4(in_pos, 1);
 				}
 			''',
@@ -34,16 +37,17 @@ class Renderer:
 
 				uniform sampler2D unif_texture;
 
-				in vec3 vert_color;
 				in vec2 vert_uv;
 
 				out vec3 frag_color;
 
 				void main() {
-					frag_color = vert_color * texture(unif_texture, vert_uv).xyz;
+					frag_color = texture(unif_texture, vert_uv).xyz;
 				}
 			'''
 		)
+		
+		self.pano_objs = []
 		texture_img = Image.open('test_texture.png')
 		self.texture = self.ctx.texture(texture_img.size, 3, texture_img.tobytes())
 		self.texture.build_mipmaps()
@@ -58,23 +62,34 @@ class Renderer:
 
 	def render(self):
 		
-		vert_buff = np.random.rand(300, 6)
-		vert_buff[:,:3] = (np.round(vert_buff[:,:3]) * 2) - 1
+		#vert_buff = np.random.rand(300, 6)
+		#vert_buff[:,:3] = (np.round(vert_buff[:,:3]) * 2) - 1
+
+		vert_buff = np.array([
+			[0, 0, 0, 0, 0],
+			[1, 0, 0, 1, 0],
+			[0, 1, 0, 0, 1],
+			
+			[1, 1, 0, 1, 1],
+			[0, 1, 0, 0, 1],
+			[1, 0, 0, 1, 0],
+		])
 
 		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(45.0, 1.0, 0.1, 100.0).T
 		mat_view = pyrr.matrix44.create_look_at((10, 10, 10), (0, 0, 0), (0, 1, 0)).T
-		mat_mvp = mat_proj @ mat_view
+		mat_viewproj = mat_proj @ mat_view
 		
 		#print(mat_view)
 		#mat_mvp = pyrr.matrix44.create_identity()
 		
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
-		vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_color')
+		vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 
 
-		self.shader_program['unif_mvp'].write(mat_mvp.T.astype(np.float32).tobytes())
+		self.shader_program['unif_mvp'].write(mat_viewproj.T.astype(np.float32).tobytes())
 
 		self.fbo.use()
+		
 		self.texture.use()
 		self.fbo.clear(0.4, 0.5, 0.6, 1.0)
 		vao.render(moderngl.TRIANGLES)
