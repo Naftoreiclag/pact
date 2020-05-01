@@ -56,8 +56,22 @@ class Renderer:
 		
 		self.pano_objs = []
 		
+		# TODO flip z axis afterwards
+		
+		matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
+		self.add_pano_obj(Image.open('ignore/posy.jpg'), matr)
+		matr = model_matr_from_orientation([-1, -1, -1], [2, 0, 0], [0, 0, 2])
+		self.add_pano_obj(Image.open('ignore/negy.jpg'), matr)
+		
+		
 		matr = model_matr_from_orientation([-1, 1, -1], [2, 0, 0], [0, -2, 0])
-		self.add_pano_obj(Image.open('test_texture.png'), matr)
+		self.add_pano_obj(Image.open('ignore/posz.jpg'), matr)
+		matr = model_matr_from_orientation([1, 1, -1], [0, 0, 2], [0, -2, 0])
+		self.add_pano_obj(Image.open('ignore/posx.jpg'), matr)
+		matr = model_matr_from_orientation([1, 1, 1], [-2, 0, 0], [0, -2, 0])
+		self.add_pano_obj(Image.open('ignore/negz.jpg'), matr)
+		matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
+		self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
 		
 		self._init_fbo(100, 100)
 		
