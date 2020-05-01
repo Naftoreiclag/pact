@@ -7,7 +7,7 @@ def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
 	
-	tk_canvas = tkinter.Canvas(tk_root, width=800, height=600, bg='black')
+	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800, bg='black')
 	tk_canvas.pack(expand=True, fill='both')
 	
 	renderer = render.Renderer()

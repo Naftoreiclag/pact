@@ -102,7 +102,7 @@ class Renderer:
 		])
 
 		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
-		mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, -1), (0, 1, 0)).T
+		mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, 1), (0, 1, 0)).T
 		mat_viewproj = mat_proj @ mat_view
 		
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
