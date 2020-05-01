@@ -47,9 +47,9 @@ def pitch_yaw_to_direction(pitch_rad, yaw_rad):
 	
 def direction_to_pitch_yaw(direction):
 	x,y,z = direction[:3]
-	pitch = np.arctan2(z, x)
-	#yaw = np.arcsin(
-	pass
+	yaw = np.arctan2(z, x)
+	pitch = np.arcsin(y)
+	return pitch, yaw
 
 class Renderer:
 	
@@ -182,7 +182,16 @@ class Renderer:
 
 if __name__ == '__main__':
 	
+	for _ in range(10):
+		pitch = np.random.rand() * np.pi - (np.pi/2)
+		yaw = np.random.rand() * np.pi * 2
+		
+		direct = pitch_yaw_to_direction(pitch, yaw)
+		pitch2, yaw2 = direction_to_pitch_yaw(direct)
+		
+		print(pitch - pitch2, yaw - yaw2)
+	
 	# Profiling
-	import cProfile
-	r = Renderer()
-	cProfile.run('r.render()')
+	#import cProfile
+	#r = Renderer()
+	#cProfile.run('r.render()')
