@@ -61,19 +61,18 @@ class Renderer:
 		vert_buff = np.random.rand(300, 6)
 		vert_buff[:,:3] = (np.round(vert_buff[:,:3]) * 2) - 1
 
-		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(45.0, 1.0, 0.1, 100.0)
-		#mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, -1), (0, 1, 0))
-		#mat_view = pyrr.matrix44.create_look_at((10, 10, 10), (0, 0, 0), (0, 1, 0))
-		mat_mvp = mat_proj# @ mat_view
+		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(45.0, 1.0, 0.1, 100.0).T
+		mat_view = pyrr.matrix44.create_look_at((10, 10, 10), (0, 0, 0), (0, 1, 0)).T
+		mat_mvp = mat_proj @ mat_view
 		
-		print(mat_proj)
+		#print(mat_view)
 		#mat_mvp = pyrr.matrix44.create_identity()
 		
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_color')
 
 
-		self.shader_program['unif_mvp'].write(mat_mvp.astype(np.float32).tobytes())
+		self.shader_program['unif_mvp'].write(mat_mvp.T.astype(np.float32).tobytes())
 
 		self.fbo.use()
 		self.texture.use()
