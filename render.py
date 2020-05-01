@@ -12,27 +12,39 @@ class PanoObj:
 		self.texture = texture
 		self.model_matr = model_matr
 
-def model_matr_from_orientation(origin_loc, axis_u, axis_v):
-	matr = np.eye(4, )
-	matr[:3,3] = origin_loc
-	matr[:3,0] = axis_u
-	matr[:3,1] = axis_v
-	return matr
-
 class View_Params:
 	def __init__(self, pitch_rad=0, yaw_rad=0):
 		self.pitch_rad = pitch_rad
 		self.yaw_rad = yaw_rad
 		
 	def compute_view_matr(self):
-		matr_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, 1), (0, 1, 0)).T
+		matr_view = pyrr.matrix44.create_look_at((0, 0, 0), pitch_yaw_to_direction(self.pitch_rad, self.yaw_rad), (0, 1, 0)).T
 		return matr_view
 		
 	def compute_proj_matr(self, fovy, aspect, near, far):
 		matr_proj = pyrr.matrix44.create_perspective_projection_matrix(fovy, aspect, near, far).T
 		return matr_proj
+
+def model_matr_from_orientation(origin_loc, axis_u, axis_v):
+	matr = np.eye(4, )
+	matr[:3,3] = origin_loc
+	matr[:3,0] = axis_u
+	matr[:3,1] = axis_v
+	return matr
 		
-		
+def pitch_yaw_to_direction(pitch_rad, yaw_rad):
+	'''
+	X = cos(yaw) * cos(pitch)
+	Z = sin(yaw) * cos(pitch)
+	Y = sin(pitch)
+	'''
+	
+	return np.array([
+		np.cos(yaw_rad) * np.cos(pitch_rad),
+		np.sin(yaw_rad) * np.cos(pitch_rad),
+		np.sin(pitch_rad)
+	])
+	
 
 class Renderer:
 	
@@ -118,6 +130,12 @@ class Renderer:
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		self.pano_obj_vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 		
+	def _compute_view_proj_matr(self):
+		matr_proj = self.view_params.compute_proj_matr(120.0, 1.0, 0.1, 100.0)
+		matr_view = self.view_params.compute_view_matr()
+		matr_view_proj = matr_proj @ matr_view
+		return matr_view_proj
+		
 		
 	def resize(self, new_width, new_height):
 		self._init_fbo(new_width, new_height)
@@ -126,18 +144,15 @@ class Renderer:
 		pass
 
 	def render(self):
-
 		
-		matr_proj = self.view_params.compute_proj_matr(120.0, 1.0, 0.1, 100.0)
-		matr_view = self.view_params.compute_view_matr()
-		mat_viewproj = matr_proj @ matr_view
+		matr_view_proj = self._compute_view_proj_matr()
 
 		self.fbo.use()
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		
 		for pano_obj in self.pano_objs:
-			mat_mvp = mat_viewproj @ pano_obj.model_matr
-			self.shader_program['unif_mvp'].write(mat_mvp.T.astype(np.float32).tobytes())
+			matr_mvp = matr_view_proj @ pano_obj.model_matr
+			self.shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 			pano_obj.texture.use()
 			self.pano_obj_vao.render(moderngl.TRIANGLES)
 

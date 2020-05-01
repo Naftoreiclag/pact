@@ -39,6 +39,7 @@ def main():
 	tk_canvas.bind('<ButtonRelease-1>', on_canvas_release_m1)
 
 	def clicky():
+		renderer.view_params.yaw_rad += (3.14159/180)*10
 		image = renderer.render()
 
 		tk_image = ImageTk.PhotoImage(image)
