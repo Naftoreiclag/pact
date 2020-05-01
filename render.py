@@ -35,16 +35,21 @@ def model_matr_from_orientation(origin_loc, axis_u, axis_v):
 def pitch_yaw_to_direction(pitch_rad, yaw_rad):
 	'''
 	X = cos(yaw) * cos(pitch)
-	Z = sin(yaw) * cos(pitch)
 	Y = sin(pitch)
+	Z = sin(yaw) * cos(pitch)
 	'''
 	
 	return np.array([
 		np.cos(yaw_rad) * np.cos(pitch_rad),
+		np.sin(pitch_rad),
 		np.sin(yaw_rad) * np.cos(pitch_rad),
-		np.sin(pitch_rad)
 	])
 	
+def direction_to_pitch_yaw(direction):
+	x,y,z = direction[:3]
+	pitch = np.arctan2(z, x)
+	#yaw = np.arcsin(
+	pass
 
 class Renderer:
 	
@@ -140,8 +145,24 @@ class Renderer:
 	def resize(self, new_width, new_height):
 		self._init_fbo(new_width, new_height)
 
-	def get_world_coordinates(self, canvas_x, canvas_y):
-		pass
+	def get_world_dir(self, canvas_x, canvas_y):
+		matr_view_proj = self._compute_view_proj_matr()
+		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
+		
+		ndc = np.array([
+			(canvas_x / self.fbo.width) * 2 - 1,
+			-((canvas_y / self.fbo.height) * 2 - 1),
+			0,
+			1,
+		])
+		
+		homo_world_coords = matr_view_proj_inv @ ndc
+		homo_world_coords /= homo_world_coords[3] # Perspective divice
+		homo_world_coords[:3] /= np.linalg.norm(homo_world_coords[:3])
+		homo_world_coords[3] = 0
+		
+		return homo_world_coords
+		
 
 	def render(self):
 		

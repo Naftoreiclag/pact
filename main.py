@@ -24,14 +24,22 @@ def main():
 		tk_canvas.delete('all')
 		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
 		
+	anchor_dir = None
 	def on_canvas_press_m1(event):
+		nonlocal anchor_dir
 		print('Press', event.x, event.y)
+		anchor_dir = renderer.get_world_dir(event.x, event.y)
 		
 	def on_canvas_drag_m1(event):
 		print('Drag', event.x, event.y)
+		new_dir = renderer.get_world_dir(event.x, event.y)
+		if anchor_dir is not None:
+			renderer.view_params.look_natural(anchor_dir, new_dir)
 		
 	def on_canvas_release_m1(event):
+		nonlocal anchor_dir
 		print('Release', event.x, event.y)
+		anchor_dir = None
 		
 	tk_canvas.bind('<Configure>', on_canvas_reconfig)
 	tk_canvas.bind('<ButtonPress-1>', on_canvas_press_m1)
