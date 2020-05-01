@@ -8,9 +8,9 @@ import random
 
 class PanoObj:
 	
-	def __init__(self, image, homography):
-		self.image = image
-		self.homography = homography
+	def __init__(self, texture, model_matr):
+		self.texture = texture
+		self.model_matr = model_matr
 
 class Renderer:
 	
@@ -48,11 +48,18 @@ class Renderer:
 		)
 		
 		self.pano_objs = []
-		texture_img = Image.open('test_texture.png')
-		self.texture = self.ctx.texture(texture_img.size, 3, texture_img.tobytes())
-		self.texture.build_mipmaps()
+		
+		self.add_pano_obj(Image.open('test_texture.png'))
 		
 		self._init_fbo(100, 100)
+		
+	def add_pano_obj(self, image, model_matr=None):
+		texture = self.ctx.texture(image.size, 3, image.tobytes())
+		texture.build_mipmaps()
+		if model_matr is None:
+			model_matr = np.eye(4)
+		pano_obj = PanoObj(texture, model_matr)
+		self.pano_objs.append(pano_obj)
 		
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))
@@ -61,9 +68,6 @@ class Renderer:
 		self._init_fbo(new_width, new_height)
 
 	def render(self):
-		
-		#vert_buff = np.random.rand(300, 6)
-		#vert_buff[:,:3] = (np.round(vert_buff[:,:3]) * 2) - 1
 
 		vert_buff = np.array([
 			[0, 0, 0, 0, 0],
@@ -79,20 +83,17 @@ class Renderer:
 		mat_view = pyrr.matrix44.create_look_at((10, 10, 10), (0, 0, 0), (0, 1, 0)).T
 		mat_viewproj = mat_proj @ mat_view
 		
-		#print(mat_view)
-		#mat_mvp = pyrr.matrix44.create_identity()
-		
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 
-
-		self.shader_program['unif_mvp'].write(mat_viewproj.T.astype(np.float32).tobytes())
-
 		self.fbo.use()
-		
-		self.texture.use()
 		self.fbo.clear(0.4, 0.5, 0.6, 1.0)
-		vao.render(moderngl.TRIANGLES)
+		
+		for pano_obj in self.pano_objs:
+			mat_mvp = mat_viewproj @ pano_obj.model_matr
+			self.shader_program['unif_mvp'].write(mat_mvp.T.astype(np.float32).tobytes())
+			pano_obj.texture.use()
+			vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
 		return image
