@@ -20,10 +20,10 @@ class View_Params:
 	def compute_view_matr(self):
 		matr_view = pyrr.matrix44.create_look_at((0, 0, 0), pitch_yaw_to_direction(self.pitch_rad, self.yaw_rad), (0, 1, 0)).T
 		return matr_view
+
+	def look_natural(self, anchor_dir, dest_dir):
+		self.pitch_rad, self.yaw_rad = direction_to_pitch_yaw(anchor_dir)
 		
-	def compute_proj_matr(self, fovy, aspect, near, far):
-		matr_proj = pyrr.matrix44.create_perspective_projection_matrix(fovy, aspect, near, far).T
-		return matr_proj
 
 def model_matr_from_orientation(origin_loc, axis_u, axis_v):
 	matr = np.eye(4, )
@@ -119,6 +119,30 @@ class Renderer:
 		pano_obj = PanoObj(texture, model_matr)
 		self.pano_objs.append(pano_obj)
 		
+	def look_natural(self, anchor_dir, canvas_x, canvas_y):
+		raise NotImplementedError()
+		matr_view = self._compute_view_matr()
+		matr_proj = self._compute_proj_matr()
+		matr_proj_inv = np.linalg.inv(matr_proj)
+		
+		ndc = np.array([
+			(canvas_x / self.fbo.width) * 2 - 1,
+			-((canvas_y / self.fbo.height) * 2 - 1),
+			0,
+			1,
+		])
+		
+		homo_view_coords = matr_proj_inv @ ndc
+		homo_view_coords /= homo_view_coords[3] # Perspective divice
+		homo_view_coords[:3] /= np.linalg.norm(homo_view_coords[:3])
+		homo_view_coords[3] = 0
+		
+		anchor_pitch, anchor_yaw = direction_to_pitch_yaw(anchor_dir)
+		canvas_pitch, canvas_yaw = direction_to_pitch_yaw(homo_view_coords)
+		
+		self.view_params.pitch_rad = -anchor_pitch - canvas_pitch
+		self.view_params.yaw_rad = -anchor_yaw - canvas_yaw
+		
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))
 		
@@ -135,15 +159,26 @@ class Renderer:
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		self.pano_obj_vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 		
+	def _compute_view_matr(self):
+		return self.view_params.compute_view_matr()
+		
+	def _compute_proj_matr(self):
+		return pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
+		
 	def _compute_view_proj_matr(self):
-		matr_proj = self.view_params.compute_proj_matr(120.0, 1.0, 0.1, 100.0)
-		matr_view = self.view_params.compute_view_matr()
+		matr_proj = self._compute_proj_matr()
+		matr_view = self._compute_view_matr()
 		matr_view_proj = matr_proj @ matr_view
 		return matr_view_proj
 		
 		
 	def resize(self, new_width, new_height):
 		self._init_fbo(new_width, new_height)
+		
+	def get_width(self):
+		return self.fbo.width
+	def get_height(self):
+		return self.fbo.height
 
 	def get_world_dir(self, canvas_x, canvas_y):
 		matr_view_proj = self._compute_view_proj_matr()

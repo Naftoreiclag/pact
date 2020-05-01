@@ -2,6 +2,7 @@ import tkinter
 from PIL import ImageTk
 import render
 import time
+import numpy as np
 
 def main():
 	tk_root = tkinter.Tk()
@@ -12,34 +13,46 @@ def main():
 	
 	renderer = render.Renderer()
 	
-	def on_canvas_reconfig(event):
-		width = event.width
-		height = event.height
-		
-		renderer.resize(width, height)
+	def refresh_canvas():
 		image = renderer.render()
 		
 		tk_image = ImageTk.PhotoImage(image)
 		tk_canvas.usr_image_ref = tk_image
 		tk_canvas.delete('all')
 		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+	
+	def on_canvas_reconfig(event):
+		width = event.width
+		height = event.height
 		
-	anchor_dir = None
+		renderer.resize(width, height)
+		
+		refresh_canvas()
+		
+	anchor_xy = np.zeros((2, ))
 	def on_canvas_press_m1(event):
-		nonlocal anchor_dir
-		print('Press', event.x, event.y)
-		anchor_dir = renderer.get_world_dir(event.x, event.y)
+		nonlocal anchor_xy
+		#print('Press', event.x, event.y)
+		anchor_xy = np.array((event.x, event.y))
 		
 	def on_canvas_drag_m1(event):
-		print('Drag', event.x, event.y)
-		new_dir = renderer.get_world_dir(event.x, event.y)
-		if anchor_dir is not None:
-			renderer.view_params.look_natural(anchor_dir, new_dir)
+		nonlocal anchor_xy
+		#print('Drag', event.x, event.y)
+		new_anchor_xy = np.array((event.x, event.y))
+		
+		diff = new_anchor_xy - anchor_xy
+		renderer.view_params.yaw_rad -= diff[0] / renderer.get_width()
+		renderer.view_params.pitch_rad += diff[1] / renderer.get_height()
+		
+		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
+		
+		anchor_xy = new_anchor_xy
+		refresh_canvas()
 		
 	def on_canvas_release_m1(event):
-		nonlocal anchor_dir
-		print('Release', event.x, event.y)
-		anchor_dir = None
+		nonlocal anchor_xy
+		#print('Release', event.x, event.y)
+		anchor_xy = None
 		
 	tk_canvas.bind('<Configure>', on_canvas_reconfig)
 	tk_canvas.bind('<ButtonPress-1>', on_canvas_press_m1)
@@ -47,13 +60,7 @@ def main():
 	tk_canvas.bind('<ButtonRelease-1>', on_canvas_release_m1)
 
 	def clicky():
-		renderer.view_params.yaw_rad += (3.14159/180)*10
-		image = renderer.render()
-
-		tk_image = ImageTk.PhotoImage(image)
-		tk_canvas.usr_image_ref = tk_image
-		tk_canvas.delete('all')
-		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+		refresh_canvas()
 
 	def update_canvas():
 		start = time.time()
