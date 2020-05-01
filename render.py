@@ -12,6 +12,13 @@ class PanoObj:
 		self.texture = texture
 		self.model_matr = model_matr
 
+def model_matr_from_orientation(origin_loc, axis_u, axis_v):
+	matr = np.eye(4, )
+	matr[:3,3] = origin_loc
+	matr[:3,0] = axis_u
+	matr[:3,1] = axis_v
+	return matr
+
 class Renderer:
 	
 	def __init__(self):
@@ -49,7 +56,8 @@ class Renderer:
 		
 		self.pano_objs = []
 		
-		self.add_pano_obj(Image.open('test_texture.png'))
+		matr = model_matr_from_orientation([-1, 1, -1], [2, 0, 0], [0, -2, 0])
+		self.add_pano_obj(Image.open('test_texture.png'), matr)
 		
 		self._init_fbo(100, 100)
 		
@@ -79,8 +87,8 @@ class Renderer:
 			[1, 0, 0, 1, 0],
 		])
 
-		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(45.0, 1.0, 0.1, 100.0).T
-		mat_view = pyrr.matrix44.create_look_at((10, 10, 10), (0, 0, 0), (0, 1, 0)).T
+		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
+		mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, -1), (0, 1, 0)).T
 		mat_viewproj = mat_proj @ mat_view
 		
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
