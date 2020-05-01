@@ -19,6 +19,21 @@ def model_matr_from_orientation(origin_loc, axis_u, axis_v):
 	matr[:3,1] = axis_v
 	return matr
 
+class View_Params:
+	def __init__(self, pitch_rad=0, yaw_rad=0):
+		self.pitch_rad = pitch_rad
+		self.yaw_rad = yaw_rad
+		
+	def compute_view_matr(self):
+		matr_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, 1), (0, 1, 0)).T
+		return matr_view
+		
+	def compute_proj_matr(self, fovy, aspect, near, far):
+		matr_proj = pyrr.matrix44.create_perspective_projection_matrix(fovy, aspect, near, far).T
+		return matr_proj
+		
+		
+
 class Renderer:
 	
 	def __init__(self):
@@ -55,6 +70,8 @@ class Renderer:
 		)
 		
 		self.pano_objs = []
+		
+		self.view_params = View_Params()
 		
 		self._init_pano_obj_fbo()
 		
@@ -110,14 +127,13 @@ class Renderer:
 
 	def render(self):
 
-		mat_proj = pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
-		mat_view = pyrr.matrix44.create_look_at((0, 0, 0), (0, 0, 1), (0, 1, 0)).T
-		mat_viewproj = mat_proj @ mat_view
 		
-		
+		matr_proj = self.view_params.compute_proj_matr(120.0, 1.0, 0.1, 100.0)
+		matr_view = self.view_params.compute_view_matr()
+		mat_viewproj = matr_proj @ matr_view
 
 		self.fbo.use()
-		self.fbo.clear(0.4, 0.5, 0.6, 1.0)
+		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		
 		for pano_obj in self.pano_objs:
 			mat_mvp = mat_viewproj @ pano_obj.model_matr
