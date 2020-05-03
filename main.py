@@ -41,8 +41,8 @@ def main():
 		new_anchor_xy = np.array((event.x, event.y))
 		
 		diff = new_anchor_xy - anchor_xy
-		renderer.view_params.yaw_rad -= diff[0] / renderer.get_width()
-		renderer.view_params.pitch_rad += diff[1] / renderer.get_height()
+		renderer.view_params.yaw_rad -= (diff[0] / renderer.get_width()) * 2
+		renderer.view_params.pitch_rad += (diff[1] / renderer.get_height()) * 2
 		
 		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
 		

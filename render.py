@@ -163,7 +163,7 @@ class Renderer:
 		return self.view_params.compute_view_matr()
 		
 	def _compute_proj_matr(self):
-		return pyrr.matrix44.create_perspective_projection_matrix(120.0, 1.0, 0.1, 100.0).T
+		return pyrr.matrix44.create_perspective_projection_matrix(120.0, self.get_width() / self.get_height(), 0.1, 100.0).T
 		
 	def _compute_view_proj_matr(self):
 		matr_proj = self._compute_proj_matr()
