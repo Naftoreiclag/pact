@@ -184,30 +184,28 @@ class Renderer:
 			vertex_shader='''
 				#version 330
 
-				uniform mat4 unif_mvp;
+				uniform mat4 unif_unprojection;
 
 				in vec3 in_pos;
-				in vec2 in_uv;
-
-				out vec2 vert_uv;
+				
+				out vec4 vert_view_dir;
 
 				void main() {
-					vert_uv = in_uv;
+					vert_view_dir = unif_unprojection * vec4(in_pos, 1);
 					gl_Position = vec4(in_pos, 1);
 				}
 			''',
 			fragment_shader='''
 				#version 330
 
-				uniform sampler2D unif_texture;
+				uniform samplerCube unif_texture;
 
-				in vec2 vert_uv;
+				in vec4 vert_view_dir;
 
 				out vec3 frag_color;
 
 				void main() {
-					frag_color = vec3(vert_uv, 0);
-					//frag_color = texture(unif_texture, vert_uv).xyz;
+					frag_color = texture(unif_texture, vert_view_dir.xyz).xyz;
 				}
 			'''
 		)
@@ -227,16 +225,16 @@ class Renderer:
 		
 	def _init_skybox_vao(self):
 		vert_buff = np.array([
-			[-1, -1, 0, 0, 0],
-			[1, -1, 0, 1, 0],
-			[-1, 1, 0, 0, 1],
+			[-1, -1, 0],
+			[1, -1, 0],
+			[-1, 1, 0],
 			
-			[1, 1, 1, 1, 1],
-			[-1, 1, 1, 0, 1],
-			[1, -1, 1, 1, 0],
+			[1, 1, 1],
+			[-1, 1, 1],
+			[1, -1, 1],
 		])
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
-		self.skybox_vao = self.ctx.simple_vertex_array(self.skybox_shader_program, vbo, 'in_pos', 'in_uv')
+		self.skybox_vao = self.ctx.simple_vertex_array(self.skybox_shader_program, vbo, 'in_pos')
 		
 	def _compute_view_matr(self):
 		return self.view_params.compute_view_matr()
@@ -280,7 +278,11 @@ class Renderer:
 
 	def render(self):
 		
-		matr_view_proj = self._compute_view_proj_matr()
+		matr_proj = self._compute_proj_matr()
+		matr_view = self._compute_view_matr()
+		matr_view_proj = matr_proj @ matr_view
+
+		matr_view_inv = np.linalg.inv(matr_view)
 
 		self.fbo.use()
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
@@ -289,7 +291,7 @@ class Renderer:
 			matr_mvp = matr_view_proj @ pano_obj.model_matr
 			
 			if pano_obj.is_skybox:
-				#self.skybox_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
+				self.skybox_shader_program['unif_unprojection'].write(matr_view_inv.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
