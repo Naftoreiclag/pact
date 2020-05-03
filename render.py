@@ -8,9 +8,10 @@ import random
 
 class PanoObj:
 	
-	def __init__(self, texture, model_matr):
+	def __init__(self, texture, model_matr, is_skybox):
 		self.texture = texture
 		self.model_matr = model_matr
+		self.is_skybox = is_skybox
 
 class View_Params:
 	def __init__(self, pitch_rad=0, yaw_rad=0):
@@ -55,7 +56,98 @@ class Renderer:
 	
 	def __init__(self):
 		self.ctx = moderngl.create_standalone_context()
-		self.shader_program = self.ctx.program(
+		
+		self._init_pano_obj_shader()
+		self._init_skybox_shader()
+		self._init_pano_obj_vao()
+		self._init_skybox_vao()
+		self._init_fbo(100, 100)
+		
+		self.pano_objs = []
+		
+		self.view_params = View_Params()
+		
+		# TODO flip z axis afterwards
+		
+		if True:
+			matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
+			skybox_textures = [
+				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/posy.jpg'),
+			]
+			
+			self.add_skybox(skybox_textures, matr)
+			
+		else:
+			matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
+			self.add_pano_obj(Image.open('ignore/posy.jpg'), matr)
+			matr = model_matr_from_orientation([-1, -1, -1], [2, 0, 0], [0, 0, 2])
+			self.add_pano_obj(Image.open('ignore/negy.jpg'), matr)
+			
+			
+			matr = model_matr_from_orientation([-1, 1, -1], [2, 0, 0], [0, -2, 0])
+			self.add_pano_obj(Image.open('ignore/posz.jpg'), matr)
+			matr = model_matr_from_orientation([1, 1, -1], [0, 0, 2], [0, -2, 0])
+			self.add_pano_obj(Image.open('ignore/posx.jpg'), matr)
+			matr = model_matr_from_orientation([1, 1, 1], [-2, 0, 0], [0, -2, 0])
+			self.add_pano_obj(Image.open('ignore/negz.jpg'), matr)
+			matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
+			self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
+		
+		
+	def add_pano_obj(self, image, model_matr=None):
+		texture = self.ctx.texture(image.size, 3, image.tobytes())
+		texture.build_mipmaps()
+		if model_matr is None:
+			model_matr = np.eye(4)
+		pano_obj = PanoObj(texture, model_matr, False)
+		self.pano_objs.append(pano_obj)
+		
+	def add_skybox(self, images, model_matr=None):
+		faces = [image.tobytes() for image in images]
+		
+		
+		texture = self.ctx.texture_cube(images[0].size, 3, b''.join(faces))
+		if model_matr is None:
+			model_matr = np.eye(4)
+		pano_obj = PanoObj(texture, model_matr, True)
+		self.pano_objs.append(pano_obj)
+		
+		
+	def look_natural(self, anchor_dir, canvas_x, canvas_y):
+		raise NotImplementedError()
+		matr_view = self._compute_view_matr()
+		matr_proj = self._compute_proj_matr()
+		matr_proj_inv = np.linalg.inv(matr_proj)
+		
+		ndc = np.array([
+			(canvas_x / self.fbo.width) * 2 - 1,
+			-((canvas_y / self.fbo.height) * 2 - 1),
+			0,
+			1,
+		])
+		
+		homo_view_coords = matr_proj_inv @ ndc
+		homo_view_coords /= homo_view_coords[3] # Perspective divice
+		homo_view_coords[:3] /= np.linalg.norm(homo_view_coords[:3])
+		homo_view_coords[3] = 0
+		
+		anchor_pitch, anchor_yaw = direction_to_pitch_yaw(anchor_dir)
+		canvas_pitch, canvas_yaw = direction_to_pitch_yaw(homo_view_coords)
+		
+		self.view_params.pitch_rad = -anchor_pitch - canvas_pitch
+		self.view_params.yaw_rad = -anchor_yaw - canvas_yaw
+		
+	def _init_fbo(self, width, height):
+		self.fbo = self.ctx.simple_framebuffer((width, height))
+		
+	def _init_pano_obj_shader(self):
+		
+		self.pano_obj_shader_program = self.ctx.program(
 			vertex_shader='''
 				#version 330
 
@@ -86,67 +178,41 @@ class Renderer:
 			'''
 		)
 		
-		self.pano_objs = []
+	def _init_skybox_shader(self):
 		
-		self.view_params = View_Params()
+		self.skybox_shader_program = self.ctx.program(
+			vertex_shader='''
+				#version 330
+
+				uniform mat4 unif_mvp;
+
+				in vec3 in_pos;
+				in vec2 in_uv;
+
+				out vec2 vert_uv;
+
+				void main() {
+					vert_uv = in_uv;
+					gl_Position = vec4(in_pos, 1);
+				}
+			''',
+			fragment_shader='''
+				#version 330
+
+				uniform sampler2D unif_texture;
+
+				in vec2 vert_uv;
+
+				out vec3 frag_color;
+
+				void main() {
+					frag_color = vec3(vert_uv, 0);
+					//frag_color = texture(unif_texture, vert_uv).xyz;
+				}
+			'''
+		)
 		
-		self._init_pano_obj_fbo()
-		
-		# TODO flip z axis afterwards
-		
-		matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-		self.add_pano_obj(Image.open('ignore/posy.jpg'), matr)
-		matr = model_matr_from_orientation([-1, -1, -1], [2, 0, 0], [0, 0, 2])
-		self.add_pano_obj(Image.open('ignore/negy.jpg'), matr)
-		
-		
-		matr = model_matr_from_orientation([-1, 1, -1], [2, 0, 0], [0, -2, 0])
-		self.add_pano_obj(Image.open('ignore/posz.jpg'), matr)
-		matr = model_matr_from_orientation([1, 1, -1], [0, 0, 2], [0, -2, 0])
-		self.add_pano_obj(Image.open('ignore/posx.jpg'), matr)
-		matr = model_matr_from_orientation([1, 1, 1], [-2, 0, 0], [0, -2, 0])
-		self.add_pano_obj(Image.open('ignore/negz.jpg'), matr)
-		matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
-		self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
-		
-		self._init_fbo(100, 100)
-		
-	def add_pano_obj(self, image, model_matr=None):
-		texture = self.ctx.texture(image.size, 3, image.tobytes())
-		texture.build_mipmaps()
-		if model_matr is None:
-			model_matr = np.eye(4)
-		pano_obj = PanoObj(texture, model_matr)
-		self.pano_objs.append(pano_obj)
-		
-	def look_natural(self, anchor_dir, canvas_x, canvas_y):
-		raise NotImplementedError()
-		matr_view = self._compute_view_matr()
-		matr_proj = self._compute_proj_matr()
-		matr_proj_inv = np.linalg.inv(matr_proj)
-		
-		ndc = np.array([
-			(canvas_x / self.fbo.width) * 2 - 1,
-			-((canvas_y / self.fbo.height) * 2 - 1),
-			0,
-			1,
-		])
-		
-		homo_view_coords = matr_proj_inv @ ndc
-		homo_view_coords /= homo_view_coords[3] # Perspective divice
-		homo_view_coords[:3] /= np.linalg.norm(homo_view_coords[:3])
-		homo_view_coords[3] = 0
-		
-		anchor_pitch, anchor_yaw = direction_to_pitch_yaw(anchor_dir)
-		canvas_pitch, canvas_yaw = direction_to_pitch_yaw(homo_view_coords)
-		
-		self.view_params.pitch_rad = -anchor_pitch - canvas_pitch
-		self.view_params.yaw_rad = -anchor_yaw - canvas_yaw
-		
-	def _init_fbo(self, width, height):
-		self.fbo = self.ctx.simple_framebuffer((width, height))
-		
-	def _init_pano_obj_fbo(self):
+	def _init_pano_obj_vao(self):
 		vert_buff = np.array([
 			[0, 0, 0, 0, 0],
 			[1, 0, 0, 1, 0],
@@ -157,7 +223,20 @@ class Renderer:
 			[1, 0, 0, 1, 0],
 		])
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
-		self.pano_obj_vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
+		self.pano_obj_vao = self.ctx.simple_vertex_array(self.pano_obj_shader_program, vbo, 'in_pos', 'in_uv')
+		
+	def _init_skybox_vao(self):
+		vert_buff = np.array([
+			[-1, -1, 0, 0, 0],
+			[1, -1, 0, 1, 0],
+			[-1, 1, 0, 0, 1],
+			
+			[1, 1, 1, 1, 1],
+			[-1, 1, 1, 0, 1],
+			[1, -1, 1, 1, 0],
+		])
+		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
+		self.skybox_vao = self.ctx.simple_vertex_array(self.skybox_shader_program, vbo, 'in_pos', 'in_uv')
 		
 	def _compute_view_matr(self):
 		return self.view_params.compute_view_matr()
@@ -208,9 +287,15 @@ class Renderer:
 		
 		for pano_obj in self.pano_objs:
 			matr_mvp = matr_view_proj @ pano_obj.model_matr
-			self.shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
-			pano_obj.texture.use()
-			self.pano_obj_vao.render(moderngl.TRIANGLES)
+			
+			if pano_obj.is_skybox:
+				#self.skybox_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
+				pano_obj.texture.use()
+				self.skybox_vao.render(moderngl.TRIANGLES)
+			else:
+				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
+				pano_obj.texture.use()
+				self.pano_obj_vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
 		return image
