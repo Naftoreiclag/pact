@@ -59,7 +59,11 @@ def main():
 	tk_canvas.bind('<B1-Motion>', on_canvas_drag_m1)
 	tk_canvas.bind('<ButtonRelease-1>', on_canvas_release_m1)
 
-	def clicky():
+	def clicky_1():
+		renderer._debug_scalar *= 0.9
+		refresh_canvas()
+	def clicky_2():
+		renderer._debug_scalar /= 0.9
 		refresh_canvas()
 
 	def update_canvas():
@@ -75,8 +79,10 @@ def main():
 		tk_root.after(10, update_canvas)
 	#tk_root.after(10, update_canvas)
 
-	button = tkinter.Button(tk_root, text='clicky', command=clicky)
-	button.pack()
+	button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
+	button1.pack()
+	button2 = tkinter.Button(tk_root, text='clicky2', command=clicky_2)
+	button2.pack()
 	tk_root.mainloop()
 
 	print('application closed')

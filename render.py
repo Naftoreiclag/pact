@@ -63,6 +63,8 @@ class Renderer:
 		self._init_skybox_vao()
 		self._init_fbo(100, 100)
 		
+		self._debug_scalar = 1
+		
 		self.pano_objs = []
 		
 		self.view_params = View_Params()
@@ -70,15 +72,15 @@ class Renderer:
 		# TODO flip z axis afterwards
 		
 		if True:
-			if False:
+			if True:
 				matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
 				skybox_textures = [
-					Image.open('ignore/posx.jpg'),
-					Image.open('ignore/negx.jpg'),
-					Image.open('ignore/posy.jpg'),
-					Image.open('ignore/negy.jpg'),
-					Image.open('ignore/posz.jpg'),
-					Image.open('ignore/negz.jpg'),
+					Image.open('ignore/Bridge2/posx.jpg'),
+					Image.open('ignore/Bridge2/negx.jpg'),
+					Image.open('ignore/Bridge2/posy.jpg'),
+					Image.open('ignore/Bridge2/negy.jpg'),
+					Image.open('ignore/Bridge2/posz.jpg'),
+					Image.open('ignore/Bridge2/negz.jpg'),
 				]
 				
 				self.add_skybox(skybox_textures, matr)
@@ -294,7 +296,7 @@ class Renderer:
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		
 		test = np.eye(4)
-		test[1,1] = 4
+		test[2,2] = self._debug_scalar
 		test = np.linalg.inv(test)
 		
 		for pano_obj in self.pano_objs:
