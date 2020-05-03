@@ -72,12 +72,12 @@ class Renderer:
 		if True:
 			matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
 			skybox_textures = [
+				Image.open('ignore/posx.jpg'),
+				Image.open('ignore/negx.jpg'),
 				Image.open('ignore/posy.jpg'),
-				Image.open('ignore/posy.jpg'),
-				Image.open('ignore/posy.jpg'),
-				Image.open('ignore/posy.jpg'),
-				Image.open('ignore/posy.jpg'),
-				Image.open('ignore/posy.jpg'),
+				Image.open('ignore/negy.jpg'),
+				Image.open('ignore/posz.jpg'),
+				Image.open('ignore/negz.jpg'),
 			]
 			
 			self.add_skybox(skybox_textures, matr)
@@ -278,23 +278,20 @@ class Renderer:
 
 	def render(self):
 		
-		matr_proj = self._compute_proj_matr()
-		matr_view = self._compute_view_matr()
-		matr_view_proj = matr_proj @ matr_view
+		matr_view_proj = self._compute_view_proj_matr()
 
-		matr_view_inv = np.linalg.inv(matr_view)
+		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
 
 		self.fbo.use()
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		
 		for pano_obj in self.pano_objs:
-			matr_mvp = matr_view_proj @ pano_obj.model_matr
-			
 			if pano_obj.is_skybox:
-				self.skybox_shader_program['unif_unprojection'].write(matr_view_inv.T.astype(np.float32).tobytes())
+				self.skybox_shader_program['unif_unprojection'].write(matr_view_proj_inv.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
+				matr_mvp = matr_view_proj @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
