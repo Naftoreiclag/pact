@@ -294,7 +294,8 @@ class Renderer:
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		
 		test = np.eye(4)
-		test[2,2] = 1
+		test[1,1] = 4
+		test = np.linalg.inv(test)
 		
 		for pano_obj in self.pano_objs:
 			if pano_obj.is_skybox:
