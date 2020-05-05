@@ -11,15 +11,17 @@ class Control_Line:
 		self.end_pos = np.array(end_pos)
 
 def approximate_intersection(a_vecs, b_vecs):
+	if len(a_vecs) < 2:
+		return None
 	dim = b_vecs[0].shape[0]
 	
 	quad_A = np.zeros((dim, dim))
 	quad_b = np.zeros(dim)
 	
 	for a_vec, b_vec in zip(a_vecs, b_vecs):
-		P = (b_vec @ b_vec.T) / (b_vec.T @ b_vec)
+		P = np.outer(b_vec, b_vec) / np.inner(b_vec, b_vec)
 		P_I = P - np.eye(dim)
-		P_I_sq = P_I @ P_I
+		P_I_sq = P_I.T @ P_I
 		
 		quad_A += P_I_sq
 		quad_b += P_I_sq @ a_vec
@@ -27,12 +29,14 @@ def approximate_intersection(a_vecs, b_vecs):
 	# quadratic is of form
 	# x'Ax - 2b'x + c
 	
+	if np.linalg.matrix_rank(quad_A) < 2:
+		return None
+	
 	# solve:
-	quad_A_inv = np.linalg.inv(quad_A)
-	
-	ans = quad_A_inv @ quad_b
-	
-	return ans
+	try:
+		return np.linalg.solve(quad_A, quad_b)
+	except np.linalg.LinAlgError as e:
+		return None
 	
 class Calibration:
 	
@@ -141,10 +145,6 @@ class Calibration:
 			pos_exit = line_ori + (time_exit * line_dir)
 			
 			draw_line_segment(pos_enter, pos_exit, color, width)
-		
-		for point in self.intersection_points:
-			draw_disk(point, 9, 'black')
-			draw_disk(point, 8, 'blue')
 				
 		
 		for con_line in self.control_lines:
@@ -162,6 +162,14 @@ class Calibration:
 			draw_disk(end, 5, 'red')
 			
 			draw_line(start, end, 'red', 1)
+		
+		for point in self.intersection_points:
+			if point is None:
+				continue
+			draw_at = image_draw_point + (point * self.scale_factor)
+			
+			draw_disk(draw_at, 9, 'black')
+			draw_disk(draw_at, 8, 'blue')
 	
 	def _on_canvas_press_m2(self, event):
 		self.last_m2_mouse_pos = np.array((event.x, event.y))
@@ -263,6 +271,7 @@ class Calibration:
 				self.control_lines.remove(self.selected_control_line)
 				self.selected_control_line = None
 			
+			self._recalc_intersections()
 			self.refresh_canvas()
 	
 	def _on_canvas_reconfig(self,event):
