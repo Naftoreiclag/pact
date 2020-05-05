@@ -84,6 +84,10 @@ class Renderer:
 				]
 				
 				self.add_skybox(skybox_textures, matr)
+				
+					
+				matr = model_matr_from_orientation([-1, -2, -1], [2, 0, 0], [0, 0, 2])
+				self.add_pano_obj(Image.open('test_texture.png'), matr)
 			else:
 				
 				matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
@@ -297,15 +301,15 @@ class Renderer:
 		
 		test = np.eye(4)
 		test[2,2] = self._debug_scalar
-		test = np.linalg.inv(test)
+		test_inv = np.linalg.inv(test)
 		
 		for pano_obj in self.pano_objs:
 			if pano_obj.is_skybox:
-				self.skybox_shader_program['unif_unprojection'].write((test @ matr_view_proj_inv).T.astype(np.float32).tobytes())
+				self.skybox_shader_program['unif_unprojection'].write((test_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
-				matr_mvp = matr_view_proj @ pano_obj.model_matr
+				matr_mvp = matr_view_proj @ test @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
