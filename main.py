@@ -4,7 +4,19 @@ import render
 import calibration
 import time
 import moderngl
+from PIL import Image
 import numpy as np
+
+import json
+
+def json_save(json_data, fname):
+	with open(fname, 'w') as ofile:
+		json.dump(json_data, ofile)
+		
+def json_load(fname):
+	with open(fname, 'r') as ifile:
+		json_data = json.load(ifile)
+		return json_data
 
 class Scene_Editor():
 	def __init__(self, tk_canvas, opengl_context):
@@ -66,7 +78,15 @@ def main():
 
 	#editor = Scene_Editor(tk_canvas, ctx)
 
-	prog = calibration.Calibration(tk_canvas, ctx)
+	img = Image.open('ignore/bears.jpg')
+	calib_tool = calibration.Calibration(tk_canvas, ctx, img)
+
+	def on_button_save():
+		json_data = calib_tool.save_to_json()
+		json_save(json_data, 'ignore/bears.json')
+	def on_button_load():
+		json_data = json_load('ignore/bears.json')
+		calib_tool.load_from_json(json_data)
 
 	def clicky_1():
 		renderer._debug_scalar *= 0.9
@@ -75,6 +95,11 @@ def main():
 		renderer._debug_scalar /= 0.9
 		editor.refresh_canvas()
 
+	button_save = tkinter.Button(tk_root, text='save', command=on_button_save)
+	button_save.pack()
+	button_load = tkinter.Button(tk_root, text='load', command=on_button_load)
+	button_load.pack()
+	
 	button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
 	button1.pack()
 	button2 = tkinter.Button(tk_root, text='clicky2', command=clicky_2)

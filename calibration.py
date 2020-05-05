@@ -10,6 +10,19 @@ class Control_Line:
 		self.start_pos = np.array(start_pos)
 		self.end_pos = np.array(end_pos)
 		self.channel = channel
+		
+	def save_to_json(self):
+		return {
+			'start' : [self.start_pos[0], self.start_pos[1]],
+			'end' : [self.end_pos[0], self.end_pos[1]],
+			'channel' : self.channel,
+		}
+		
+	def load_from_json(data):
+		start_pos = np.array(data['start'])
+		end_pos = np.array(data['end'])
+		channel = int(data['channel'])
+		return Control_Line(start_pos, end_pos, channel)
 
 def approximate_intersection(a_vecs, b_vecs):
 	if len(a_vecs) < 2:
@@ -41,9 +54,9 @@ def approximate_intersection(a_vecs, b_vecs):
 	
 class Calibration:
 	
-	def __init__(self, tk_canvas, opengl_context):
+	def __init__(self, tk_canvas, opengl_context, image, save_data=None):
 		
-		self.image = Image.open('ignore/bears.jpg')
+		self.image = image
 		self.image_dimensions = np.array((self.image.width, self.image.height))
 		self.tk_canvas = tk_canvas
 		
@@ -64,6 +77,9 @@ class Calibration:
 		self.look_pos = np.zeros(2,)
 		
 		self.setup_binds()
+		
+		if save_data is not None:
+			self.load_from_json(save_data)
 		
 	def setup_binds(self):
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
@@ -181,6 +197,7 @@ class Calibration:
 			
 			color = self.channel_colors[channel_idx]
 			draw_disk(draw_at, 8, color)
+	
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()
@@ -305,3 +322,17 @@ class Calibration:
 		if key in binds:
 			self.selected_channel = binds[key]
 			print('Selected channel {}'.format(self.selected_channel))
+			
+	def save_to_json(self):
+		retval = {}
+		
+		retval['control_lines'] = [x.save_to_json() for x in self.control_lines]
+		
+		return retval
+		
+	def load_from_json(self, data):
+		
+		self.control_lines = [Control_Line.load_from_json(x) for x in data['control_lines']]
+		self._recalc_intersections()
+		self.refresh_canvas()
+		
