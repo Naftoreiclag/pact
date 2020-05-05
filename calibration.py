@@ -6,9 +6,10 @@ import render
 
 class Control_Line:
 	
-	def __init__(self, start_pos, end_pos):
+	def __init__(self, start_pos, end_pos, channel):
 		self.start_pos = np.array(start_pos)
 		self.end_pos = np.array(end_pos)
+		self.channel = channel
 
 def approximate_intersection(a_vecs, b_vecs):
 	if len(a_vecs) < 2:
@@ -51,18 +52,24 @@ class Calibration:
 		self.control_lines = []
 		self.scale_factor = 0.1
 		
+		self.selected_channel = 0
+		self.num_channels = 3
+		self.channel_colors = ['red', 'green', 'blue']
+		
 		self.selected_control_line = None
 		self.selected_control_line_point = None
 		
 		self.intersection_points = []
 		
-		self.control_lines.append(Control_Line([0, 0], [4000, 3000]))
 		self.look_pos = np.zeros(2,)
 		
 		self.setup_binds()
 		
 	def setup_binds(self):
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
+		
+		self.tk_canvas.bind('<Key>', self._on_canvas_key)
+		
 		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
 		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
 		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
@@ -157,35 +164,43 @@ class Calibration:
 			draw_disk(start, 6, 'black')
 			draw_disk(end, 6, 'black')
 			
-			draw_line_segment(start, end, 'red', 3)
-			draw_disk(start, 5, 'red')
-			draw_disk(end, 5, 'red')
+			color = self.channel_colors[con_line.channel]
 			
-			draw_line(start, end, 'red', 1)
+			draw_line_segment(start, end, color, 3)
+			draw_disk(start, 5, color)
+			draw_disk(end, 5, color)
+			
+			draw_line(start, end, color, 1)
 		
-		for point in self.intersection_points:
+		for channel_idx, point in enumerate(self.intersection_points):
 			if point is None:
 				continue
 			draw_at = image_draw_point + (point * self.scale_factor)
 			
 			draw_disk(draw_at, 9, 'black')
-			draw_disk(draw_at, 8, 'blue')
+			
+			color = self.channel_colors[channel_idx]
+			draw_disk(draw_at, 8, color)
 	
 	def _on_canvas_press_m2(self, event):
+		self.tk_canvas.focus_set()
 		self.last_m2_mouse_pos = np.array((event.x, event.y))
 		
 	def _recalc_intersections(self):
 		self.intersection_points = []
 		
-		a_vecs = []
-		b_vecs = []
-		
-		for con_line in self.control_lines:
-			a_vecs.append(con_line.start_pos)
-			b_vecs.append(con_line.end_pos - con_line.start_pos)
-		
-		intersect = approximate_intersection(a_vecs, b_vecs)
-		self.intersection_points.append(intersect)
+		for channel in range(self.num_channels):
+			
+			a_vecs = []
+			b_vecs = []
+			
+			for con_line in self.control_lines:
+				if con_line.channel == channel:
+					a_vecs.append(con_line.start_pos)
+					b_vecs.append(con_line.end_pos - con_line.start_pos)
+			
+			intersect = approximate_intersection(a_vecs, b_vecs)
+			self.intersection_points.append(intersect)
 		
 	def _on_canvas_drag_m2(self, event):
 		new_pos = np.array((event.x, event.y))
@@ -232,6 +247,8 @@ class Calibration:
 				
 		
 	def _on_canvas_press_m1(self, event):
+		
+		self.tk_canvas.focus_set()
 		click_pos = self.canvas_to_image_coords(np.array((event.x, event.y)))
 		
 		selection = self.get_selection(click_pos)
@@ -239,16 +256,12 @@ class Calibration:
 			point_name, con_line = selection
 			self.selected_control_line = con_line
 			self.selected_control_line_point = point_name
-		
-		
 		else:
-			new_line = Control_Line(click_pos, click_pos)
+			new_line = Control_Line(click_pos, click_pos, self.selected_channel)
 			self.control_lines.append(new_line)
 			self.selected_control_line = new_line
 			self.selected_control_line_point = 'start'
 			self.refresh_canvas()
-		
-		
 		
 	def _on_canvas_drag_m1(self, event):
 		click_pos = self.canvas_to_image_coords(np.array((event.x, event.y)))
@@ -274,7 +287,21 @@ class Calibration:
 			self._recalc_intersections()
 			self.refresh_canvas()
 	
-	def _on_canvas_reconfig(self,event):
+	def _on_canvas_reconfig(self, event):
 		self.canvas_size = np.array((event.width, event.height))
 		self.renderer.resize(event.width, event.height)
 		self.refresh_canvas()
+		
+	def _on_canvas_key(self, event):
+		
+		binds = {
+			'1' : 0,
+			'2' : 1,
+			'3' : 2,
+		}
+		
+		key = event.char
+	
+		if key in binds:
+			self.selected_channel = binds[key]
+			print('Selected channel {}'.format(self.selected_channel))
