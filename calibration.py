@@ -16,16 +16,19 @@ class Control_Line:
 
 class Calibration:
 	
-	def __init__(self, tk_canvas):
+	def __init__(self, tk_canvas, opengl_context):
+		
+		self.ctx = opengl_context
 		
 		self.control_lines = []
 		self.zoom_level = 1
 		self.cal_image = Calibrated_Image(Image.open('ignore/bears.jpg'))
 		
 		self.control_lines.append(Control_Line([0, 0], [4000, 3000]))
+		self.look_pos = np.zeros(2,)
 		
 		self.tk_canvas = tk_canvas
-		self._load_tk_image(0.1)
+		self._set_scale_factor(0.1)
 		self.setup_binds()
 		
 	def setup_binds(self):
@@ -33,10 +36,17 @@ class Calibration:
 		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
 		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
 		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
-		
+		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
+
+	def _on_canvas_mousewheel(self, event):
+		new_scale = self.scale_factor*np.exp(event.delta / 10)
+		new_scale = np.clip(new_scale, 0.01, 0.1)
+		self._set_scale_factor(new_scale)
+		self.refresh_canvas()
+
 	def refresh_canvas(self):
 		
-		origin_point = self.canvas_size / 2
+		origin_point = (self.canvas_size / 2) - self.look_pos
 		
 		self.tk_canvas.delete('all')
 		
@@ -53,7 +63,7 @@ class Calibration:
 			
 			self.tk_canvas.create_line(start[0], start[1], end[0], end[1])
 		
-	def _load_tk_image(self, scale_factor):
+	def _set_scale_factor(self, scale_factor):
 		image = self.cal_image.image
 		image_size = np.array((image.width, image.height))
 		self.scale_factor = scale_factor
@@ -62,10 +72,19 @@ class Calibration:
 		self.tk_image = ImageTk.PhotoImage(self.cal_image.image.resize((width, height), Image.ANTIALIAS))
 	
 	def _on_canvas_press_m2(self, event):
-		pass
+		self.anchor_pos = np.array((event.x, event.y))
 		
 	def _on_canvas_drag_m2(self, event):
-		pass
+		new_pos = np.array((event.x, event.y))
+		
+		delta = new_pos - self.anchor_pos
+		
+		self.look_pos -= delta
+		
+		print(self.look_pos)
+		
+		self.anchor_pos = new_pos
+		self.refresh_canvas()
 		
 	def _on_canvas_release_m2(self, event):
 		pass

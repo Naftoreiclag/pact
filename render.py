@@ -54,8 +54,8 @@ def direction_to_pitch_yaw(direction):
 
 class Renderer:
 	
-	def __init__(self):
-		self.ctx = moderngl.create_standalone_context()
+	def __init__(self, opengl_context):
+		self.ctx = opengl_context
 		
 		self._init_pano_obj_shader()
 		self._init_skybox_shader()
@@ -313,6 +313,88 @@ class Renderer:
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
+
+		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
+		return image
+
+class Single_Image_Renderer:
+	
+	def __init__(self, opengl_context, image):
+		self.ctx = opengl_context
+		self.image = image
+		self.texture = self.ctx.texture(image.size, 3, self.image.tobytes())
+		self.texture.build_mipmaps()
+		
+		self._init_shader()
+		self._init_vao()
+		self._init_fbo(100, 100)
+		
+	def _init_fbo(self, width, height):
+		self.fbo = self.ctx.simple_framebuffer((width, height))
+		
+	def _init_skybox_shader(self):
+		
+		self.shader_program = self.ctx.program(
+			vertex_shader='''
+				#version 330
+
+				uniform mat4 unif_mvp;
+
+				in vec3 in_pos;
+				in vec2 in_uv;
+
+				out vec2 vert_uv;
+
+				void main() {
+					vert_uv = in_uv;
+					gl_Position = unif_mvp * vec4(in_pos, 1);
+				}
+			''',
+			fragment_shader='''
+				#version 330
+
+				uniform sampler2D unif_texture;
+
+				in vec2 vert_uv;
+
+				out vec3 frag_color;
+
+				void main() {
+					frag_color = texture(unif_texture, vert_uv).xyz;
+				}
+			'''
+		)
+		
+	def _init_vao(self):
+		vert_buff = np.array([
+			[-1, -1, 0],
+			[1, -1, 0],
+			[-1, 1, 0],
+			
+			[1, 1, 1],
+			[-1, 1, 1],
+			[1, -1, 1],
+		])
+		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
+		self.vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos')
+		
+	def resize(self, new_width, new_height):
+		self._init_fbo(new_width, new_height)
+		
+	def get_width(self):
+		return self.fbo.width
+		
+	def get_height(self):
+		return self.fbo.height
+
+	def render(self, image_x, image_y, image_width, image_height):
+		
+		self.fbo.use()
+		self.fbo.clear(0.5, 0.5, 0.5, 1.0)
+		
+		#self.shader_program['unif_transform'].write((transform_matrix).T.astype(np.float32).tobytes())
+		self.texture.use()
+		self.vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
 		return image

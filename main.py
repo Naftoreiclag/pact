@@ -3,13 +3,14 @@ from PIL import ImageTk
 import render
 import calibration
 import time
+import moderngl
 import numpy as np
 
 class Scene_Editor():
-	def __init__(self, tk_canvas):
+	def __init__(self, tk_canvas, opengl_context):
 		self.anchor_xy = np.zeros((2, ))
 		self.tk_canvas = tk_canvas
-		self.renderer = render.Renderer()
+		self.renderer = render.Renderer(opengl_context)
 		self.setup_binds()
 		
 	def setup_binds(self):
@@ -61,9 +62,11 @@ def main():
 	tk_canvas.pack(expand=True, fill='both')
 	
 	
-	#editor = Scene_Editor(tk_canvas)
+	ctx = moderngl.create_standalone_context()
 
-	prog = calibration.Calibration(tk_canvas)
+	editor = Scene_Editor(tk_canvas, ctx)
+
+	#prog = calibration.Calibration(tk_canvas, ctx)
 
 	def clicky_1():
 		renderer._debug_scalar *= 0.9
