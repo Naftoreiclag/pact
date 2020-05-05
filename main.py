@@ -9,12 +9,13 @@ class Scene_Editor():
 		self.anchor_xy = np.zeros((2, ))
 		self.tk_canvas = tk_canvas
 		self.renderer = render.Renderer()
-		self.refresh = None
+		self.setup_binds()
 		
-		self.tk_canvas.bind('<Configure>', self.on_canvas_reconfig)
-		self.tk_canvas.bind('<ButtonPress-1>', self.on_canvas_press_m1)
-		self.tk_canvas.bind('<B1-Motion>', self.on_canvas_drag_m1)
-		self.tk_canvas.bind('<ButtonRelease-1>', self.on_canvas_release_m1)
+	def setup_binds(self):
+		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
+		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
+		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
+		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
 		
 	def refresh_canvas(self):
 		image = self.renderer.render()
@@ -24,10 +25,10 @@ class Scene_Editor():
 		self.tk_canvas.delete('all')
 		self.tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
 	
-	def on_canvas_press_m1(self, event):
+	def _on_canvas_press_m2(self, event):
 		self.anchor_xy = np.array((event.x, event.y))
 		
-	def on_canvas_drag_m1(self, event):
+	def _on_canvas_drag_m2(self, event):
 		new_anchor_xy = np.array((event.x, event.y))
 		
 		diff = new_anchor_xy - self.anchor_xy
@@ -38,18 +39,17 @@ class Scene_Editor():
 		
 		self.anchor_xy = new_anchor_xy
 		self.refresh_canvas()
+		
+	def _on_canvas_release_m2(self, event):
+		self.anchor_xy = None
 	
-	
-	def on_canvas_reconfig(self,event):
+	def _on_canvas_reconfig(self,event):
 		width = event.width
 		height = event.height
 		
 		self.renderer.resize(width, height)
 		
 		self.refresh_canvas()
-		
-	def on_canvas_release_m1(self, event):
-		self.anchor_xy = None
 	
 
 def main():
