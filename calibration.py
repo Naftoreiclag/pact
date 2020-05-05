@@ -10,6 +10,30 @@ class Control_Line:
 		self.start_pos = np.array(start_pos)
 		self.end_pos = np.array(end_pos)
 
+def approximate_intersection(a_vecs, b_vecs):
+	dim = b_vecs[0].shape[0]
+	
+	quad_A = np.zeros((dim, dim))
+	quad_b = np.zeros(dim)
+	
+	for a_vec, b_vec in zip(a_vecs, b_vecs):
+		P = (b_vec @ b_vec.T) / (b_vec.T @ b_vec)
+		P_I = P - np.eye(dim)
+		P_I_sq = P_I @ P_I
+		
+		quad_A += P_I_sq
+		quad_b += P_I_sq @ a_vec
+	
+	# quadratic is of form
+	# x'Ax - 2b'x + c
+	
+	# solve:
+	quad_A_inv = np.linalg.inv(quad_A)
+	
+	ans = quad_A_inv @ quad_b
+	
+	return ans
+	
 class Calibration:
 	
 	def __init__(self, tk_canvas, opengl_context):
@@ -25,6 +49,8 @@ class Calibration:
 		
 		self.selected_control_line = None
 		self.selected_control_line_point = None
+		
+		self.intersection_points = []
 		
 		self.control_lines.append(Control_Line([0, 0], [4000, 3000]))
 		self.look_pos = np.zeros(2,)
@@ -68,6 +94,7 @@ class Calibration:
 
 	def refresh_canvas(self):
 		
+		canvas_size = np.array((self.renderer.get_width(), self.renderer.get_height()))
 		origin_point = self._calc_origin_point()
 		
 		self.tk_canvas.delete('all')
@@ -86,8 +113,39 @@ class Calibration:
 			bbox_max = pos + radius
 			self.tk_canvas.create_oval(bbox_min[0], bbox_min[1], bbox_max[0], bbox_max[1], fill=color, width=0)
 		
-		def draw_line(start, end, color, width):
+		def draw_line_segment(start, end, color, width):
 			self.tk_canvas.create_line(start[0], start[1], end[0], end[1], fill=color, width=width)
+		
+		def draw_line(p1, p2, color, width):
+			bbox_max = canvas_size
+			bbox_min = np.zeros(2)
+			
+			line_dir = p2 - p1
+			line_ori = p1
+			
+			# Simple hack for removing divide-by-zero
+			eps = 1e-20
+			line_dir[line_dir == 0] = eps
+			
+			
+			time_hit_a = (bbox_min - line_ori) / line_dir
+			time_hit_b = (bbox_max - line_ori) / line_dir
+			
+			time_hit_max = np.maximum(time_hit_a, time_hit_b)
+			time_hit_min = np.minimum(time_hit_a, time_hit_b)
+			
+			time_enter = np.max(time_hit_min)
+			time_exit = np.min(time_hit_max)
+			
+			pos_enter = line_ori + (time_enter * line_dir)
+			pos_exit = line_ori + (time_exit * line_dir)
+			
+			draw_line_segment(pos_enter, pos_exit, color, width)
+		
+		for point in self.intersection_points:
+			draw_disk(point, 9, 'black')
+			draw_disk(point, 8, 'blue')
+				
 		
 		for con_line in self.control_lines:
 			
@@ -95,16 +153,31 @@ class Calibration:
 			end = image_draw_point + (con_line.end_pos * self.scale_factor)
 			
 			
-			draw_line(start, end, 'black', 5)
+			draw_line_segment(start, end, 'black', 5)
 			draw_disk(start, 6, 'black')
 			draw_disk(end, 6, 'black')
 			
-			draw_line(start, end, 'red', 3)
+			draw_line_segment(start, end, 'red', 3)
 			draw_disk(start, 5, 'red')
 			draw_disk(end, 5, 'red')
+			
+			draw_line(start, end, 'red', 1)
 	
 	def _on_canvas_press_m2(self, event):
 		self.last_m2_mouse_pos = np.array((event.x, event.y))
+		
+	def _recalc_intersections(self):
+		self.intersection_points = []
+		
+		a_vecs = []
+		b_vecs = []
+		
+		for con_line in self.control_lines:
+			a_vecs.append(con_line.start_pos)
+			b_vecs.append(con_line.end_pos - con_line.start_pos)
+		
+		intersect = approximate_intersection(a_vecs, b_vecs)
+		self.intersection_points.append(intersect)
 		
 	def _on_canvas_drag_m2(self, event):
 		new_pos = np.array((event.x, event.y))
@@ -176,6 +249,8 @@ class Calibration:
 				self.selected_control_line.start_pos = click_pos
 			elif self.selected_control_line_point == 'end':
 				self.selected_control_line.end_pos = click_pos
+				
+			self._recalc_intersections()
 			self.refresh_canvas()
 		
 	def _on_canvas_release_m1(self, event):
