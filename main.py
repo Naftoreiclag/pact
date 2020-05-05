@@ -4,12 +4,17 @@ import render
 import time
 import numpy as np
 
-class Asdf():
+class Scene_Editor():
 	def __init__(self, tk_canvas):
 		self.anchor_xy = np.zeros((2, ))
 		self.tk_canvas = tk_canvas
 		self.renderer = render.Renderer()
 		self.refresh = None
+		
+		self.tk_canvas.bind('<Configure>', self.on_canvas_reconfig)
+		self.tk_canvas.bind('<ButtonPress-1>', self.on_canvas_press_m1)
+		self.tk_canvas.bind('<B1-Motion>', self.on_canvas_drag_m1)
+		self.tk_canvas.bind('<ButtonRelease-1>', self.on_canvas_release_m1)
 		
 	def refresh_canvas(self):
 		image = self.renderer.render()
@@ -55,32 +60,14 @@ def main():
 	tk_canvas.pack(expand=True, fill='both')
 	
 	
-	asdf = Asdf(tk_canvas)
-		
-	tk_canvas.bind('<Configure>', asdf.on_canvas_reconfig)
-	tk_canvas.bind('<ButtonPress-1>', asdf.on_canvas_press_m1)
-	tk_canvas.bind('<B1-Motion>', asdf.on_canvas_drag_m1)
-	tk_canvas.bind('<ButtonRelease-1>', asdf.on_canvas_release_m1)
+	editor = Scene_Editor(tk_canvas)
 
 	def clicky_1():
 		renderer._debug_scalar *= 0.9
-		asdf.refresh_canvas()
+		editor.refresh_canvas()
 	def clicky_2():
 		renderer._debug_scalar /= 0.9
-		asdf.refresh_canvas()
-
-	def update_canvas():
-		start = time.time()
-		image = renderer.render()
-		print("render:", (time.time() - start)*1000)
-		start = time.time()
-		tk_image = ImageTk.PhotoImage(image)
-		tk_canvas.usr_image_ref = tk_image
-		tk_canvas.delete('all')
-		tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
-		print("update canvas:", (time.time() - start)*1000)
-		tk_root.after(10, update_canvas)
-	#tk_root.after(10, update_canvas)
+		editor.refresh_canvas()
 
 	button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
 	button1.pack()
