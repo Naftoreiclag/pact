@@ -1,6 +1,7 @@
 import tkinter
 from PIL import ImageTk
 import render
+import calibration
 import time
 import numpy as np
 
@@ -56,11 +57,13 @@ def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
 	
-	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800, bg='black')
+	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800)
 	tk_canvas.pack(expand=True, fill='both')
 	
 	
-	editor = Scene_Editor(tk_canvas)
+	#editor = Scene_Editor(tk_canvas)
+
+	prog = calibration.Calibration(tk_canvas)
 
 	def clicky_1():
 		renderer._debug_scalar *= 0.9
