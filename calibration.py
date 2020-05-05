@@ -52,6 +52,20 @@ def approximate_intersection(a_vecs, b_vecs):
 	except np.linalg.LinAlgError as e:
 		return None
 	
+def compute_centroid(tri_points):
+	
+	def simple_orthogonal(direction):
+		return np.array((direction[1], -direction[0]))
+	
+	dir_ab = tri_points[1] - tri_points[0]
+	dir_bc = tri_points[2] - tri_points[1]
+	dir_ca = tri_points[0] - tri_points[2]
+	
+	line_starts = tri_points
+	line_dirs = [simple_orthogonal(x) for x in [dir_bc, dir_ca, dir_ab]]
+	
+	return approximate_intersection(line_starts, line_dirs)
+	
 class Calibration:
 	
 	def __init__(self, tk_canvas, opengl_context, image, save_data=None):
@@ -73,6 +87,8 @@ class Calibration:
 		self.selected_control_line_point = None
 		
 		self.intersection_points = []
+		
+		self.centroid_preview = None
 		
 		self.look_pos = np.zeros(2,)
 		
@@ -140,10 +156,13 @@ class Calibration:
 			bbox_max = pos + radius
 			self.tk_canvas.create_oval(bbox_min[0], bbox_min[1], bbox_max[0], bbox_max[1], fill=color, width=0)
 		
-		def draw_line_segment(start, end, color, width):
-			self.tk_canvas.create_line(start[0], start[1], end[0], end[1], fill=color, width=width)
+		def draw_line_segment(start, end, color, width, dashed=False):
+			if dashed:
+				self.tk_canvas.create_line(start[0], start[1], end[0], end[1], fill=color, width=width, dash=(5, 5))
+			else:
+				self.tk_canvas.create_line(start[0], start[1], end[0], end[1], fill=color, width=width)
 		
-		def draw_line(p1, p2, color, width):
+		def draw_line(p1, p2, color, width, dashed=False):
 			bbox_max = canvas_size
 			bbox_min = np.zeros(2)
 			
@@ -167,7 +186,7 @@ class Calibration:
 			pos_enter = line_ori + (time_enter * line_dir)
 			pos_exit = line_ori + (time_exit * line_dir)
 			
-			draw_line_segment(pos_enter, pos_exit, color, width)
+			draw_line_segment(pos_enter, pos_exit, color, width, dashed)
 				
 		
 		for con_line in self.control_lines:
@@ -198,26 +217,23 @@ class Calibration:
 			color = self.channel_colors[channel_idx]
 			draw_disk(draw_at, 8, color)
 	
+		if self.centroid_preview is not None:
+			
+			draw_at = image_draw_point + (self.centroid_preview * self.scale_factor)
+			draw_disk(draw_at, 4, 'black')
+			draw_disk(draw_at, 3, 'white')
+			
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()
 		self.last_m2_mouse_pos = np.array((event.x, event.y))
 		
 	def _recalc_intersections(self):
-		self.intersection_points = []
-		
-		for channel in range(self.num_channels):
-			
-			a_vecs = []
-			b_vecs = []
-			
-			for con_line in self.control_lines:
-				if con_line.channel == channel:
-					a_vecs.append(con_line.start_pos)
-					b_vecs.append(con_line.end_pos - con_line.start_pos)
-			
-			intersect = approximate_intersection(a_vecs, b_vecs)
-			self.intersection_points.append(intersect)
+		self.intersection_points = solve_vanishing_points(self.control_lines, self.num_channels)
+		if not any(x is None for x in self.intersection_points):
+			self.centroid_preview = compute_centroid(self.intersection_points)
+		else:
+			self.centroid_preview = None
 		
 	def _on_canvas_drag_m2(self, event):
 		new_pos = np.array((event.x, event.y))
@@ -332,7 +348,56 @@ class Calibration:
 		
 	def load_from_json(self, data):
 		
-		self.control_lines = [Control_Line.load_from_json(x) for x in data['control_lines']]
+		self.control_lines = load_control_lines_from_json(data)
 		self._recalc_intersections()
 		self.refresh_canvas()
 		
+def load_control_lines_from_json(json_data):
+	control_lines = [Control_Line.load_from_json(x) for x in json_data['control_lines']]
+	return control_lines
+		
+def solve_vanishing_points(control_lines, num_channels):
+	if type(control_lines) == dict:
+		control_lines = load_control_lines_from_json(control_lines)
+	intersection_points = []
+	
+	for channel in range(num_channels):
+		
+		a_vecs = []
+		b_vecs = []
+		
+		for con_line in control_lines:
+			if con_line.channel == channel:
+				a_vecs.append(con_line.start_pos)
+				b_vecs.append(con_line.end_pos - con_line.start_pos)
+		
+		intersect = approximate_intersection(a_vecs, b_vecs)
+		intersection_points.append(intersect)
+		
+	return intersection_points
+		
+def solve_perspective(control_lines):
+	if type(control_lines) == dict:
+		control_lines = load_control_lines_from_json(control_lines)
+	
+	vanishing_points = solve_vanishing_points(control_lines, 3)
+	
+	num_points = sum(1 for x in vanishing_points if x is not None)
+	
+	if num_points == 0:
+		raise RuntimeError('Requires at least 1 vanishing point')
+	elif num_points == 1:
+		raise NotImplementedError()
+	elif num_points == 2:
+		raise NotImplementedError()
+	elif num_points == 3:
+		
+		# Compute the centroid
+		centroid = compute_centroid(vanishing_points)
+		
+		
+		
+		raise NotImplementedError()
+	else:
+		assert(False)
+	
