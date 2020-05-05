@@ -23,6 +23,9 @@ class Calibration:
 		self.control_lines = []
 		self.scale_factor = 0.1
 		
+		self.selected_control_line = None
+		self.selected_control_line_point = None
+		
 		self.control_lines.append(Control_Line([0, 0], [4000, 3000]))
 		self.look_pos = np.zeros(2,)
 		
@@ -33,6 +36,9 @@ class Calibration:
 		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
 		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
 		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
+		self.tk_canvas.bind('<ButtonPress-1>', self._on_canvas_press_m1)
+		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
+		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
 		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
 
 	def _on_canvas_mousewheel(self, event):
@@ -75,30 +81,114 @@ class Calibration:
 			self.tk_canvas.usr_image_ref = ImageTk.PhotoImage(image)
 		self.tk_canvas.create_image(0, 0, image=self.tk_canvas.usr_image_ref, anchor='nw')
 		
+		def draw_disk(pos, radius, color):
+			bbox_min = pos - radius
+			bbox_max = pos + radius
+			self.tk_canvas.create_oval(bbox_min[0], bbox_min[1], bbox_max[0], bbox_max[1], fill=color, width=0)
+		
+		def draw_line(start, end, color, width):
+			self.tk_canvas.create_line(start[0], start[1], end[0], end[1], fill=color, width=width)
+		
 		for con_line in self.control_lines:
 			
 			start = image_draw_point + (con_line.start_pos * self.scale_factor)
 			end = image_draw_point + (con_line.end_pos * self.scale_factor)
 			
 			
+			draw_line(start, end, 'black', 5)
+			draw_disk(start, 6, 'black')
+			draw_disk(end, 6, 'black')
 			
-			self.tk_canvas.create_line(start[0], start[1], end[0], end[1])
+			draw_line(start, end, 'red', 3)
+			draw_disk(start, 5, 'red')
+			draw_disk(end, 5, 'red')
 	
 	def _on_canvas_press_m2(self, event):
-		self.anchor_pos = np.array((event.x, event.y))
+		self.last_m2_mouse_pos = np.array((event.x, event.y))
 		
 	def _on_canvas_drag_m2(self, event):
 		new_pos = np.array((event.x, event.y))
 		
-		delta = new_pos - self.anchor_pos
+		delta = new_pos - self.last_m2_mouse_pos
 		
 		self.look_pos -= delta
 		
-		self.anchor_pos = new_pos
+		self.last_m2_mouse_pos = new_pos
 		self.refresh_canvas()
 		
 	def _on_canvas_release_m2(self, event):
 		pass
+		
+	def canvas_to_image_coords(self, canvas_pos):
+		
+		image_center = self.image_dimensions / 2
+		origin_point = self._calc_origin_point()
+		
+		to_canvas = canvas_pos - origin_point
+		to_canvas /= self.scale_factor
+		
+		return image_center + to_canvas
+		
+	def image_to_canvas_coords(self, image_pos):
+		
+		image_center = self.image_dimensions / 2
+		origin_point = self._calc_origin_point()
+		
+		to_image = image_pos - image_center
+		to_image *= self.scale_factor
+		
+		return origin_point + to_image
+		
+	def get_selection(self, image_pos, select_rad=10):
+		
+		click_canvas_coords = self.image_to_canvas_coords(image_pos)
+		for con_line in self.control_lines[::-1]:
+			for point_name, point in [('start', con_line.start_pos), ('end', con_line.end_pos)]:
+				point_canvas_coords = self.image_to_canvas_coords(point)
+				if np.linalg.norm(click_canvas_coords - point_canvas_coords) < select_rad:
+					return point_name, con_line
+		return None
+				
+		
+	def _on_canvas_press_m1(self, event):
+		click_pos = self.canvas_to_image_coords(np.array((event.x, event.y)))
+		
+		selection = self.get_selection(click_pos)
+		if selection is not None:
+			point_name, con_line = selection
+			self.selected_control_line = con_line
+			self.selected_control_line_point = point_name
+		
+		
+		else:
+			new_line = Control_Line(click_pos, click_pos)
+			self.control_lines.append(new_line)
+			self.selected_control_line = new_line
+			self.selected_control_line_point = 'start'
+			self.refresh_canvas()
+		
+		
+		
+	def _on_canvas_drag_m1(self, event):
+		click_pos = self.canvas_to_image_coords(np.array((event.x, event.y)))
+		if self.selected_control_line is not None:
+			if self.selected_control_line_point == 'start':
+				self.selected_control_line.start_pos = click_pos
+			elif self.selected_control_line_point == 'end':
+				self.selected_control_line.end_pos = click_pos
+			self.refresh_canvas()
+		
+	def _on_canvas_release_m1(self, event):
+		if self.selected_control_line is not None:
+			apparent_start = self.image_to_canvas_coords(self.selected_control_line.start_pos)
+			apparent_end = self.image_to_canvas_coords(self.selected_control_line.end_pos)
+			length = np.linalg.norm(apparent_start - apparent_end)
+			
+			if length < 20:
+				self.control_lines.remove(self.selected_control_line)
+				self.selected_control_line = None
+			
+			self.refresh_canvas()
 	
 	def _on_canvas_reconfig(self,event):
 		self.canvas_size = np.array((event.width, event.height))
