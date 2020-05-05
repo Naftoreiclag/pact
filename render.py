@@ -332,7 +332,7 @@ class Single_Image_Renderer:
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))
 		
-	def _init_skybox_shader(self):
+	def _init_shader(self):
 		
 		self.shader_program = self.ctx.program(
 			vertex_shader='''
@@ -347,7 +347,7 @@ class Single_Image_Renderer:
 
 				void main() {
 					vert_uv = in_uv;
-					gl_Position = unif_mvp * vec4(in_pos, 1);
+					gl_Position = vec4(in_pos, 1);
 				}
 			''',
 			fragment_shader='''
@@ -367,13 +367,13 @@ class Single_Image_Renderer:
 		
 	def _init_vao(self):
 		vert_buff = np.array([
-			[-1, -1, 0],
-			[1, -1, 0],
-			[-1, 1, 0],
+			[-1, -1, 0, 0, 0],
+			[1, -1, 0, 1, 0],
+			[-1, 1, 0, 0, 1],
 			
-			[1, 1, 1],
-			[-1, 1, 1],
-			[1, -1, 1],
+			[1, 1, 1, 1, 1],
+			[-1, 1, 1, 0, 1],
+			[1, -1, 1, 1, 0],
 		])
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		self.vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos')
@@ -387,7 +387,7 @@ class Single_Image_Renderer:
 	def get_height(self):
 		return self.fbo.height
 
-	def render(self, image_x, image_y, image_width, image_height):
+	def render(self, image_draw_point, image_dimensions):
 		
 		self.fbo.use()
 		self.fbo.clear(0.5, 0.5, 0.5, 1.0)

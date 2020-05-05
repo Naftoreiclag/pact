@@ -2,6 +2,7 @@
 from PIL import Image
 from PIL import ImageTk
 import numpy as np
+import render
 
 class Calibrated_Image:
 	
@@ -18,11 +19,13 @@ class Calibration:
 	
 	def __init__(self, tk_canvas, opengl_context):
 		
-		self.ctx = opengl_context
+		image = Image.open('ignore/bears.jpg')
+		
+		self.renderer = render.Single_Image_Renderer(opengl_context, image)
 		
 		self.control_lines = []
 		self.zoom_level = 1
-		self.cal_image = Calibrated_Image(Image.open('ignore/bears.jpg'))
+		self.cal_image = Calibrated_Image(image)
 		
 		self.control_lines.append(Control_Line([0, 0], [4000, 3000]))
 		self.look_pos = np.zeros(2,)
@@ -52,7 +55,13 @@ class Calibration:
 		
 		image_draw_point = origin_point - (self.tk_image_size / 2)
 		
-		self.tk_canvas.create_image(image_draw_point[0], image_draw_point[1], image=self.tk_image, anchor='nw')
+		
+		image = self.renderer.render(image_draw_point, self.tk_image_size * self.scale_factor)
+		tk_image = ImageTk.PhotoImage(image)
+		self.tk_canvas.usr_image_ref = tk_image
+		self.tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+		
+		#self.tk_canvas.create_image(image_draw_point[0], image_draw_point[1], image=self.tk_image, anchor='nw')
 		
 		for con_line in self.control_lines:
 			

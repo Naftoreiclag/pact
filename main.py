@@ -64,9 +64,9 @@ def main():
 	
 	ctx = moderngl.create_standalone_context()
 
-	editor = Scene_Editor(tk_canvas, ctx)
+	#editor = Scene_Editor(tk_canvas, ctx)
 
-	#prog = calibration.Calibration(tk_canvas, ctx)
+	prog = calibration.Calibration(tk_canvas, ctx)
 
 	def clicky_1():
 		renderer._debug_scalar *= 0.9
