@@ -338,7 +338,7 @@ class Single_Image_Renderer:
 			vertex_shader='''
 				#version 330
 
-				uniform mat4 unif_mvp;
+				uniform mat4 unif_transform;
 
 				in vec3 in_pos;
 				in vec2 in_uv;
@@ -347,7 +347,7 @@ class Single_Image_Renderer:
 
 				void main() {
 					vert_uv = in_uv;
-					gl_Position = vec4(in_pos, 1);
+					gl_Position = unif_transform * vec4(in_pos, 1);
 				}
 			''',
 			fragment_shader='''
@@ -367,16 +367,16 @@ class Single_Image_Renderer:
 		
 	def _init_vao(self):
 		vert_buff = np.array([
-			[-1, -1, 0, 0, 0],
-			[1, -1, 0, 1, 0],
-			[-1, 1, 0, 0, 1],
+			[0, 0, 0, 0, 0],
+			[1, 0, 0, 1, 0],
+			[0, 1, 0, 0, 1],
 			
 			[1, 1, 1, 1, 1],
-			[-1, 1, 1, 0, 1],
-			[1, -1, 1, 1, 0],
+			[0, 1, 1, 0, 1],
+			[1, 0, 1, 1, 0],
 		])
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
-		self.vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos')
+		self.vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 		
 	def resize(self, new_width, new_height):
 		self._init_fbo(new_width, new_height)
@@ -392,7 +392,16 @@ class Single_Image_Renderer:
 		self.fbo.use()
 		self.fbo.clear(0.5, 0.5, 0.5, 1.0)
 		
-		#self.shader_program['unif_transform'].write((transform_matrix).T.astype(np.float32).tobytes())
+		matr_transform = np.eye(4)
+		matr_transform[0, 3] = (image_draw_point[0] / self.get_width()) * 2 - 1
+		matr_transform[1, 3] = (image_draw_point[1] / self.get_height()) * 2 - 1
+		matr_transform[0, 0] = (image_dimensions[0] / self.get_width()) * 2
+		matr_transform[1, 1] = (image_dimensions[1] / self.get_height()) * 2
+		
+		# Flip Y
+		matr_transform[1] *= -1
+		
+		self.shader_program['unif_transform'].write((matr_transform).T.astype(np.float32).tobytes())
 		self.texture.use()
 		self.vao.render(moderngl.TRIANGLES)
 
