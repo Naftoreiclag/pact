@@ -36,8 +36,8 @@ class Calibration:
 		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
 
 	def _on_canvas_mousewheel(self, event):
-		new_scale = self.scale_factor*np.exp(event.delta / 10)
-		new_scale = np.clip(new_scale, 0.01, 0.1)
+		new_scale = self.scale_factor*np.exp(event.delta / 30)
+		new_scale = np.clip(new_scale, 0.01, 10)
 		self.scale_factor = new_scale
 		self.refresh_canvas()
 
@@ -52,10 +52,10 @@ class Calibration:
 		
 		self.renderer.set_image_draw_point(image_draw_point)
 		self.renderer.set_image_draw_size(self.image_dimensions * self.scale_factor)
-		image = self.renderer.render()
-		tk_image = ImageTk.PhotoImage(image)
-		self.tk_canvas.usr_image_ref = tk_image
-		self.tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+		image, image_is_new = self.renderer.render()
+		if image_is_new:
+			self.tk_canvas.usr_image_ref = ImageTk.PhotoImage(image)
+		self.tk_canvas.create_image(0, 0, image=self.tk_canvas.usr_image_ref, anchor='nw')
 		
 		for con_line in self.control_lines:
 			

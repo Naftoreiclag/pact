@@ -409,7 +409,7 @@ class Single_Image_Renderer:
 	def render(self):
 		
 		if self.use_caching and self.cached_image is not None:
-			return self.cached_image
+			return self.cached_image, False
 		
 		self.fbo.use()
 		self.fbo.clear(0.5, 0.5, 0.5, 1.0)
@@ -432,7 +432,7 @@ class Single_Image_Renderer:
 		if self.use_caching:
 			self.cached_image = image
 		
-		return image
+		return image, True
 
 if __name__ == '__main__':
 	
