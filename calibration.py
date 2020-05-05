@@ -50,7 +50,9 @@ class Calibration:
 		
 		image_draw_point = origin_point - (self.image_dimensions / 2) * self.scale_factor
 		
-		image = self.renderer.render(image_draw_point, self.image_dimensions * self.scale_factor)
+		self.renderer.set_image_draw_point(image_draw_point)
+		self.renderer.set_image_draw_size(self.image_dimensions * self.scale_factor)
+		image = self.renderer.render()
 		tk_image = ImageTk.PhotoImage(image)
 		self.tk_canvas.usr_image_ref = tk_image
 		self.tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')

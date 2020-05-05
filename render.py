@@ -319,15 +319,22 @@ class Renderer:
 
 class Single_Image_Renderer:
 	
-	def __init__(self, opengl_context, image):
+	def __init__(self, opengl_context, image, caching=True):
 		self.ctx = opengl_context
 		self.image = image
 		self.texture = self.ctx.texture(image.size, 3, self.image.tobytes())
 		self.texture.build_mipmaps()
 		
+		self.use_caching = caching
+		
+		self.image_draw_point = np.zeros(2)
+		self.image_draw_size = np.zeros(2)
+		
 		self._init_shader()
 		self._init_vao()
 		self._init_fbo(100, 100)
+		
+		self.cached_image = None
 		
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))
@@ -379,24 +386,39 @@ class Single_Image_Renderer:
 		self.vao = self.ctx.simple_vertex_array(self.shader_program, vbo, 'in_pos', 'in_uv')
 		
 	def resize(self, new_width, new_height):
-		self._init_fbo(new_width, new_height)
+		if self.get_width() != new_width or self.get_height() != new_height:
+			self._init_fbo(new_width, new_height)
+			self.cached_image = None
 		
 	def get_width(self):
 		return self.fbo.width
 		
 	def get_height(self):
 		return self.fbo.height
+		
+	def set_image_draw_point(self, image_draw_point):
+		if not np.all(self.image_draw_point == image_draw_point):
+			self.image_draw_point = image_draw_point
+			self.cached_image = None
+		
+	def set_image_draw_size(self, image_draw_size):
+		if not np.all(self.image_draw_size == image_draw_size):
+			self.image_draw_size = image_draw_size
+			self.cached_image = None
 
-	def render(self, image_draw_point, image_dimensions):
+	def render(self):
+		
+		if self.use_caching and self.cached_image is not None:
+			return self.cached_image
 		
 		self.fbo.use()
 		self.fbo.clear(0.5, 0.5, 0.5, 1.0)
 		
 		matr_transform = np.eye(4)
-		matr_transform[0, 3] = (image_draw_point[0] / self.get_width()) * 2 - 1
-		matr_transform[1, 3] = (image_draw_point[1] / self.get_height()) * 2 - 1
-		matr_transform[0, 0] = (image_dimensions[0] / self.get_width()) * 2
-		matr_transform[1, 1] = (image_dimensions[1] / self.get_height()) * 2
+		matr_transform[0, 3] = (self.image_draw_point[0] / self.get_width()) * 2 - 1
+		matr_transform[1, 3] = (self.image_draw_point[1] / self.get_height()) * 2 - 1
+		matr_transform[0, 0] = (self.image_draw_size[0] / self.get_width()) * 2
+		matr_transform[1, 1] = (self.image_draw_size[1] / self.get_height()) * 2
 		
 		# Flip Y
 		matr_transform[1] *= -1
@@ -406,6 +428,10 @@ class Single_Image_Renderer:
 		self.vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
+		
+		if self.use_caching:
+			self.cached_image = image
+		
 		return image
 
 if __name__ == '__main__':
