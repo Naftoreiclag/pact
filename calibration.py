@@ -36,15 +36,33 @@ class Calibration:
 		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
 
 	def _on_canvas_mousewheel(self, event):
-		new_scale = self.scale_factor*np.exp(event.delta / 30)
+		
+		new_scale = self.scale_factor * np.exp(event.delta / 30)
 		new_scale = np.clip(new_scale, 0.01, 10)
+		scale_factor_change = new_scale / self.scale_factor
+		
+		# Find where the mouse is 
+		mouse_canvas_pos = np.array((event.x, event.y))
+		
+		origin_point = self._calc_origin_point()
+		dist_to_origin = origin_point - mouse_canvas_pos
+		
+		self.look_pos += dist_to_origin
+		self.look_pos -= dist_to_origin * scale_factor_change
+		
 		self.scale_factor = new_scale
 		self.refresh_canvas()
 
-	def refresh_canvas(self):
+	def _calc_origin_point(self):
 		
 		canvas_size = np.array((self.renderer.get_width(), self.renderer.get_height()))
 		origin_point = (canvas_size / 2) - self.look_pos
+		
+		return origin_point
+
+	def refresh_canvas(self):
+		
+		origin_point = self._calc_origin_point()
 		
 		self.tk_canvas.delete('all')
 		
@@ -75,8 +93,6 @@ class Calibration:
 		delta = new_pos - self.anchor_pos
 		
 		self.look_pos -= delta
-		
-		print(self.look_pos)
 		
 		self.anchor_pos = new_pos
 		self.refresh_canvas()
