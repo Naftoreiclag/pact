@@ -39,7 +39,14 @@ class Scene_Editor():
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
+		flip_x = np.eye(4)
+		flip_x[0,0] = -1
+		flip_z = np.eye(4)
+		flip_z[2,2] = -1
 		self.renderer.add_pano_obj(image, matr)
+		self.renderer.add_pano_obj(image, flip_x @ matr)
+		self.renderer.add_pano_obj(image, flip_z @ matr)
+		self.renderer.add_pano_obj(image, flip_z @ flip_x @ matr)
 	
 	def _on_canvas_press_m2(self, event):
 		self.anchor_xy = np.array((event.x, event.y))
@@ -78,7 +85,8 @@ def main():
 	
 	ctx = moderngl.create_standalone_context()
 
-	img = Image.open('ignore/bears.jpg')
+	example_fname = 'ignore/data/trash'
+	img = Image.open(example_fname + '.jpg')
 	if True:
 		'''
 		editor = Scene_Editor(tk_canvas, ctx)
@@ -96,15 +104,15 @@ def main():
 		editor.renderer.add_pano_obj(img, flip_z @ flip_x @ matr)
 		'''
 		editor = Scene_Editor(tk_canvas, ctx)
-		editor.add_pano_obj_from_file('ignore/bears.jpg')
+		editor.add_pano_obj_from_file(example_fname + '.jpg')
 	else:
 		calib_tool = calibration.Calibration(tk_canvas, ctx, img)
 
 	def on_button_save():
 		json_data = calib_tool.save_to_json()
-		io_utils.json_save(json_data, 'ignore/bears.json')
+		io_utils.json_save(json_data, example_fname + '.json')
 	def on_button_load():
-		json_data = io_utils.json_load('ignore/bears.json')
+		json_data = io_utils.json_load(example_fname + '.json')
 		calib_tool.load_from_json(json_data)
 
 	def clicky_1():

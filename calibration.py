@@ -462,6 +462,12 @@ def solve_perspective(control_lines, image_width, image_height):
 		downscale_matr[1, 1] = 1/dist
 		downscale_matr[2, 2] = 1/dist
 		
-		return undo_image_rotation @ downscale_matr @ image_plane_matr
+		heuristic_matr = np.eye(4)
+		
+		# Small heuristic: if the y vanishing point is below the other two, then flip the image
+		if vanishing_points[1][1] > (vanishing_points[0][1] + vanishing_points[2][1]) / 2:
+			heuristic_matr[1, 1] = -1
+		
+		return heuristic_matr @ undo_image_rotation @ downscale_matr @ image_plane_matr
 	else:
 		assert(False)
