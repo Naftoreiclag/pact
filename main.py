@@ -76,10 +76,15 @@ def main():
 	
 	ctx = moderngl.create_standalone_context()
 
-	#editor = Scene_Editor(tk_canvas, ctx)
-
 	img = Image.open('ignore/bears.jpg')
-	calib_tool = calibration.Calibration(tk_canvas, ctx, img)
+	if True:
+		editor = Scene_Editor(tk_canvas, ctx)
+
+		matr = calibration.solve_perspective(json_load('ignore/bears.json'), img.width, img.height)
+		
+		editor.renderer.add_pano_obj(img, matr)
+	else:
+		calib_tool = calibration.Calibration(tk_canvas, ctx, img)
 
 	def on_button_save():
 		json_data = calib_tool.save_to_json()

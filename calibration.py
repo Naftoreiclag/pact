@@ -64,7 +64,49 @@ def compute_centroid(tri_points):
 	line_starts = tri_points
 	line_dirs = [simple_orthogonal(x) for x in [dir_bc, dir_ca, dir_ab]]
 	
-	return approximate_intersection(line_starts, line_dirs)
+	intersection = approximate_intersection(line_starts, line_dirs)
+	
+	'''
+	# Pick a point arbitrarily, find the difference of squared distances
+	
+	point_ref = tri_points[0]
+	edge_opp_start = tri_points[1]
+	edge_opp_dir = tri_points[2] - tri_points[1]
+	edge_opp_dir /= np.linalg.norm(edge_opp_dir)
+	
+	# Project reference onto other line
+	
+	displ = point_ref - edge_opp_start
+	proj = (edge_opp_dir * np.dot(edge_opp_dir, displ)) + edge_opp_start
+	
+	dual_dist = np.linalg.norm(proj - point_ref) ** 2 - 
+	'''
+	
+	midpoint_ab = (tri_points[0] + tri_points[1]) / 2
+	midpoint_bc = (tri_points[1] + tri_points[2]) / 2
+	midpoint_ca = (tri_points[2] + tri_points[0]) / 2
+	
+	radius_ab = np.linalg.norm(dir_ab) / 2
+	radius_bc = np.linalg.norm(dir_bc) / 2
+	radius_ca = np.linalg.norm(dir_ca) / 2
+	
+	dist_ab_i = np.linalg.norm(midpoint_ab - intersection)
+	dist_bc_i = np.linalg.norm(midpoint_bc - intersection)
+	dist_ca_i = np.linalg.norm(midpoint_ca - intersection)
+	
+	height_ab = radius_ab ** 2 - dist_ab_i ** 2
+	height_bc = radius_bc ** 2 - dist_bc_i ** 2
+	height_ca = radius_ca ** 2 - dist_ca_i ** 2
+	
+	assert(np.allclose(height_ab, height_bc))
+	assert(np.allclose(height_ab, height_ca))
+	
+	if height_ab < 0:
+		dual_dist = None
+	else:
+		dual_dist = np.sqrt(height_ab)
+	
+	return intersection, dual_dist
 	
 class Calibration:
 	
@@ -231,7 +273,7 @@ class Calibration:
 	def _recalc_intersections(self):
 		self.intersection_points = solve_vanishing_points(self.control_lines, self.num_channels)
 		if not any(x is None for x in self.intersection_points):
-			self.centroid_preview = compute_centroid(self.intersection_points)
+			self.centroid_preview, _ = compute_centroid(self.intersection_points)
 		else:
 			self.centroid_preview = None
 		
@@ -376,7 +418,7 @@ def solve_vanishing_points(control_lines, num_channels):
 		
 	return intersection_points
 		
-def solve_perspective(control_lines):
+def solve_perspective(control_lines, image_width, image_height):
 	if type(control_lines) == dict:
 		control_lines = load_control_lines_from_json(control_lines)
 	
@@ -392,12 +434,34 @@ def solve_perspective(control_lines):
 		raise NotImplementedError()
 	elif num_points == 3:
 		
-		# Compute the centroid
-		centroid = compute_centroid(vanishing_points)
+		centroid, dist = compute_centroid(vanishing_points)
 		
+		if dist is None:
+			raise RuntimeError('Impossible camera settings')
 		
+		image_plane_matr = np.eye(4)
+		image_plane_matr[0, 3] = centroid[0]
+		image_plane_matr[1, 3] = centroid[1]
+		image_plane_matr[2, 3] = dist
+		image_plane_matr[0, 0] = -image_width
+		image_plane_matr[1, 1] = -image_height
 		
-		raise NotImplementedError()
+		downscale_matr = np.eye(4)
+		downscale_matr[0, 0] = 1/dist
+		downscale_matr[1, 1] = 1/dist
+		downscale_matr[2, 2] = 1/dist
+		
+		#fix_horizon_matr = np.eye(4)
+		#fix_horizon_matr[0, 0] = fix_horizon_matr[
+		#fix_horizon_matr[0, 0] = fix_horizon_matr[
+		
+		return downscale_matr @ image_plane_matr
 	else:
 		assert(False)
-	
+
+def model_matr_from_orientation(origin_loc, axis_u, axis_v):
+	matr = np.eye(4, )
+	matr[:3,3] = origin_loc
+	matr[:3,0] = axis_u
+	matr[:3,1] = axis_v
+	return matr
