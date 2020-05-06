@@ -2,6 +2,7 @@
 from PIL import Image
 from PIL import ImageTk
 import numpy as np
+import io_utils
 import render
 
 class Control_Line:
@@ -370,6 +371,9 @@ class Calibration:
 		
 		retval['control_lines'] = [x.save_to_json() for x in self.control_lines]
 		
+		image_plane_matrix = solve_perspective(self.control_lines, self.image_dimensions[0], self.image_dimensions[1])
+		retval['image_plane_matrix'] = io_utils.save_matrix_to_json(image_plane_matrix)
+		
 		return retval
 		
 	def load_from_json(self, data):
@@ -461,10 +465,3 @@ def solve_perspective(control_lines, image_width, image_height):
 		return undo_image_rotation @ downscale_matr @ image_plane_matr
 	else:
 		assert(False)
-
-def model_matr_from_orientation(origin_loc, axis_u, axis_v):
-	matr = np.eye(4, )
-	matr[:3,3] = origin_loc
-	matr[:3,0] = axis_u
-	matr[:3,1] = axis_v
-	return matr

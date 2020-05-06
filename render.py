@@ -5,6 +5,7 @@ import pyrr
 from PIL import Image
 
 import random
+import io_utils
 
 class PanoObj:
 	
@@ -434,6 +435,8 @@ class Single_Image_Renderer:
 			self.cached_image = image
 		
 		return image, True
+	
+	
 
 if __name__ == '__main__':
 	
