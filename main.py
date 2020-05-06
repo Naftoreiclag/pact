@@ -83,18 +83,36 @@ class Scene_Editor():
 		
 		self.refresh_canvas()
 
+def create_scrollable(master):
+	# Create the canvas to hold the scrollable contents
+	canvas = tkinter.Canvas(master)
+	
+	# Create the scrollbar, and establish communication links
+	scrollbar = tkinter.Scrollbar(master, orient='vertical', command=canvas.yview)
+	canvas.configure(yscrollcommand=scrollbar.set)
+	
+	# Packing information
+	scrollbar.pack(side='right', fill='y')
+	canvas.pack(side='left', fill='both')
+	
+	# Create the child frame
+	child_frame = tkinter.Frame(canvas)
+	canvas.create_window((0,0), anchor='nw', window=child_frame)
+	
+	# Reset scroll region when reconfigured
+	child_frame.bind('<Configure>', lambda event: canvas.configure(scrollregion=canvas.bbox('all')))
+	
+	return child_frame
+	
 def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
 	
-	tk_frame = tkinter.Frame(tk_root)
-	#tk_frame.pack(expand=True)
-	
 	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800)
-	tk_canvas.grid(row=0, column=0, sticky='nsew')
+	tk_canvas.grid(row=100, column=100, sticky='nsew')
 	
-	tk_root.columnconfigure(0, weight=1)
-	tk_root.rowconfigure(0, weight=1)
+	tk_root.columnconfigure(100, weight=1)
+	tk_root.rowconfigure(100, weight=1)
 	
 	ctx = moderngl.create_standalone_context()
 
@@ -137,10 +155,28 @@ def main():
 		editor.renderer._debug_scalar /= 0.9
 		editor.refresh_canvas()
 
+	
+	tk_frame = tkinter.Frame(tk_root)
+	tk_frame.grid(row=99, column=100)
+	
+	parent_frame = tkinter.Frame(tk_root, relief=tkinter.GROOVE, bd=1)
+	parent_frame.grid(row=100, column=101, sticky='ns')
+	
+	scrollable = create_scrollable(parent_frame)
+	button_idx = 0
+	
+	def add_button():
+		nonlocal button_idx
+		button = tkinter.Button(scrollable, text='test', command=add_button)
+		button.grid(row=button_idx, column=0)
+		button_idx += 1
+	add_button()
+		
+	
 	button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
-	button_save.grid(row=0, column=1)
+	button_save.grid(row=100, column=100)
 	button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
-	button_load.grid(row=0, column=1)
+	button_load.grid(row=100, column=101)
 	
 	if False:
 		
