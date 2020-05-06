@@ -43,10 +43,19 @@ class Scene_Editor():
 		flip_x[0,0] = -1
 		flip_z = np.eye(4)
 		flip_z[2,2] = -1
-		self.renderer.add_pano_obj(image, matr)
-		self.renderer.add_pano_obj(image, flip_x @ matr)
-		self.renderer.add_pano_obj(image, flip_z @ matr)
-		self.renderer.add_pano_obj(image, flip_z @ flip_x @ matr)
+		
+		rotate90 = np.eye(4)
+		rotate90[0,0] = 0
+		rotate90[2,0] = 1
+		rotate90[0,2] = -1
+		rotate90[2,2] = 0
+		
+		
+		for asdf in [np.eye(4), rotate90]:
+			self.renderer.add_pano_obj(image, asdf @ matr)
+			self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
+			self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
+			self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
 	
 	def _on_canvas_press_m2(self, event):
 		self.anchor_xy = np.array((event.x, event.y))
@@ -73,21 +82,25 @@ class Scene_Editor():
 		self.renderer.resize(width, height)
 		
 		self.refresh_canvas()
-	
 
 def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
 	
-	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800)
-	tk_canvas.pack(expand=True, fill='both')
+	tk_frame = tkinter.Frame(tk_root)
+	#tk_frame.pack(expand=True)
 	
+	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800)
+	tk_canvas.grid(row=0, column=0, sticky='nsew')
+	
+	tk_root.columnconfigure(0, weight=1)
+	tk_root.rowconfigure(0, weight=1)
 	
 	ctx = moderngl.create_standalone_context()
 
-	example_fname = 'ignore/data/trash'
+	example_fname = 'ignore/data/bears2'
 	img = Image.open(example_fname + '.jpg')
-	if True:
+	if False:
 		'''
 		editor = Scene_Editor(tk_canvas, ctx)
 
@@ -109,28 +122,33 @@ def main():
 		calib_tool = calibration.Calibration(tk_canvas, ctx, img)
 
 	def on_button_save():
+		return
 		json_data = calib_tool.save_to_json()
 		io_utils.json_save(json_data, example_fname + '.json')
 	def on_button_load():
+		return
 		json_data = io_utils.json_load(example_fname + '.json')
 		calib_tool.load_from_json(json_data)
 
 	def clicky_1():
-		renderer._debug_scalar *= 0.9
+		editor.renderer._debug_scalar *= 0.9
 		editor.refresh_canvas()
 	def clicky_2():
-		renderer._debug_scalar /= 0.9
+		editor.renderer._debug_scalar /= 0.9
 		editor.refresh_canvas()
 
-	button_save = tkinter.Button(tk_root, text='save', command=on_button_save)
-	button_save.pack()
-	button_load = tkinter.Button(tk_root, text='load', command=on_button_load)
-	button_load.pack()
+	button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
+	button_save.grid(row=0, column=1)
+	button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
+	button_load.grid(row=0, column=1)
 	
-	button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
-	button1.pack()
-	button2 = tkinter.Button(tk_root, text='clicky2', command=clicky_2)
-	button2.pack()
+	if False:
+		
+		button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
+		button1.pack()
+		button2 = tkinter.Button(tk_root, text='clicky2', command=clicky_2)
+		button2.pack()
+	
 	tk_root.mainloop()
 
 	print('application closed')

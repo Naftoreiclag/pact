@@ -104,7 +104,7 @@ class Calibration:
 		self.renderer = render.Single_Image_Renderer(opengl_context, self.image)
 		
 		self.control_lines = []
-		self.scale_factor = 0.1
+		self.scale_factor = 0.0
 		
 		self.selected_channel = 0
 		self.num_channels = 3
@@ -348,8 +348,16 @@ class Calibration:
 			self.refresh_canvas()
 	
 	def _on_canvas_reconfig(self, event):
+		# On bootup, get a good default size
+		if self.scale_factor == 0.0:
+			self.scale_factor = max(event.width, event.height) / min(self.image.width, self.image.height)
+			self.scale_factor = np.clip(self.scale_factor, 0.1, 10)
+			
+		if self.renderer.get_width() == event.width and self.renderer.get_height() == event.width:
+			return
 		self.canvas_size = np.array((event.width, event.height))
 		self.renderer.resize(event.width, event.height)
+		print('Resize canvas to: {}'.format([event.width, event.height]))
 		self.refresh_canvas()
 		
 	def _on_canvas_key(self, event):
@@ -371,8 +379,11 @@ class Calibration:
 		
 		retval['control_lines'] = [x.save_to_json() for x in self.control_lines]
 		
-		image_plane_matrix = solve_perspective(self.control_lines, self.image_dimensions[0], self.image_dimensions[1])
-		retval['image_plane_matrix'] = io_utils.save_matrix_to_json(image_plane_matrix)
+		try:
+			image_plane_matrix = solve_perspective(self.control_lines, self.image_dimensions[0], self.image_dimensions[1])
+			retval['image_plane_matrix'] = io_utils.save_matrix_to_json(image_plane_matrix)
+		except RuntimeError as e:
+			print('Error! Unable to solve for perspective: {}'.format(e.what()))
 		
 		return retval
 		

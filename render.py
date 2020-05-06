@@ -89,7 +89,7 @@ class Renderer:
 					
 						
 					matr = model_matr_from_orientation([-1, -2, -1], [2, 0, 0], [0, 0, 2])
-					self.add_pano_obj(Image.open('test_texture.png'), matr)
+					#self.add_pano_obj(Image.open('test_texture.png'), matr)
 				else:
 					
 					matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
