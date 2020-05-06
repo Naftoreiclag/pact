@@ -66,22 +66,6 @@ def compute_centroid(tri_points):
 	
 	intersection = approximate_intersection(line_starts, line_dirs)
 	
-	'''
-	# Pick a point arbitrarily, find the difference of squared distances
-	
-	point_ref = tri_points[0]
-	edge_opp_start = tri_points[1]
-	edge_opp_dir = tri_points[2] - tri_points[1]
-	edge_opp_dir /= np.linalg.norm(edge_opp_dir)
-	
-	# Project reference onto other line
-	
-	displ = point_ref - edge_opp_start
-	proj = (edge_opp_dir * np.dot(edge_opp_dir, displ)) + edge_opp_start
-	
-	dual_dist = np.linalg.norm(proj - point_ref) ** 2 - 
-	'''
-	
 	midpoint_ab = (tri_points[0] + tri_points[1]) / 2
 	midpoint_bc = (tri_points[1] + tri_points[2]) / 2
 	midpoint_ca = (tri_points[2] + tri_points[0]) / 2
@@ -446,16 +430,35 @@ def solve_perspective(control_lines, image_width, image_height):
 		image_plane_matr[0, 0] = -image_width
 		image_plane_matr[1, 1] = -image_height
 		
+		to_x_vanish = np.zeros(4,)
+		to_y_vanish = np.zeros(4,)
+		to_z_vanish = np.zeros(4,)
+		
+		to_x_vanish[:2] = -(vanishing_points[0] - centroid)
+		to_y_vanish[:2] = -(vanishing_points[1] - centroid)
+		to_z_vanish[:2] = -(vanishing_points[2] - centroid)
+		
+		to_x_vanish[2] = dist
+		to_y_vanish[2] = dist
+		to_z_vanish[2] = dist
+		
+		to_x_vanish /= np.linalg.norm(to_x_vanish)
+		to_y_vanish /= np.linalg.norm(to_y_vanish)
+		to_z_vanish /= np.linalg.norm(to_z_vanish)
+		
+		image_rotation = np.eye(4)
+		image_rotation[:, 0] = to_x_vanish
+		image_rotation[:, 1] = to_y_vanish
+		image_rotation[:, 2] = to_z_vanish
+		
+		undo_image_rotation = image_rotation.T
+		
 		downscale_matr = np.eye(4)
 		downscale_matr[0, 0] = 1/dist
 		downscale_matr[1, 1] = 1/dist
 		downscale_matr[2, 2] = 1/dist
 		
-		#fix_horizon_matr = np.eye(4)
-		#fix_horizon_matr[0, 0] = fix_horizon_matr[
-		#fix_horizon_matr[0, 0] = fix_horizon_matr[
-		
-		return downscale_matr @ image_plane_matr
+		return undo_image_rotation @ downscale_matr @ image_plane_matr
 	else:
 		assert(False)
 

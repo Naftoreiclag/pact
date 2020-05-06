@@ -72,29 +72,30 @@ class Renderer:
 		# TODO flip z axis afterwards
 		
 		if True:
-			if True:
-				matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-				skybox_textures = [
-					Image.open('ignore/Bridge2/posx.jpg'),
-					Image.open('ignore/Bridge2/negx.jpg'),
-					Image.open('ignore/Bridge2/posy.jpg'),
-					Image.open('ignore/Bridge2/negy.jpg'),
-					Image.open('ignore/Bridge2/posz.jpg'),
-					Image.open('ignore/Bridge2/negz.jpg'),
-				]
-				
-				self.add_skybox(skybox_textures, matr)
-				
+			if False:
+				if True:
+					matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
+					skybox_textures = [
+						Image.open('ignore/Bridge2/posx.jpg'),
+						Image.open('ignore/Bridge2/negx.jpg'),
+						Image.open('ignore/Bridge2/posy.jpg'),
+						Image.open('ignore/Bridge2/negy.jpg'),
+						Image.open('ignore/Bridge2/posz.jpg'),
+						Image.open('ignore/Bridge2/negz.jpg'),
+					]
 					
-				matr = model_matr_from_orientation([-1, -2, -1], [2, 0, 0], [0, 0, 2])
-				self.add_pano_obj(Image.open('test_texture.png'), matr)
-			else:
-				
-				matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-				checks = Image.open('checkerboard.png')
-				skybox_textures = [checks] * 6
-				
-				self.add_skybox(skybox_textures, matr)
+					self.add_skybox(skybox_textures, matr)
+					
+						
+					matr = model_matr_from_orientation([-1, -2, -1], [2, 0, 0], [0, 0, 2])
+					self.add_pano_obj(Image.open('test_texture.png'), matr)
+				else:
+					
+					matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
+					checks = Image.open('checkerboard.png')
+					skybox_textures = [checks] * 6
+					
+					self.add_skybox(skybox_textures, matr)
 			
 		else:
 			matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])

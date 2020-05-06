@@ -82,7 +82,15 @@ def main():
 
 		matr = calibration.solve_perspective(json_load('ignore/bears.json'), img.width, img.height)
 		
+		flip_x = np.eye(4)
+		flip_x[0,0] = -1
+		flip_z = np.eye(4)
+		flip_z[2,2] = -1
+		
 		editor.renderer.add_pano_obj(img, matr)
+		editor.renderer.add_pano_obj(img, flip_x @ matr)
+		editor.renderer.add_pano_obj(img, flip_z @ matr)
+		editor.renderer.add_pano_obj(img, flip_z @ flip_x @ matr)
 	else:
 		calib_tool = calibration.Calibration(tk_canvas, ctx, img)
 
