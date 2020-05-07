@@ -10,12 +10,23 @@ import os
 import io_utils
 import draw_utils
 
-class Camera_Pan_Tool:
+class Editor_Tool:
+		
+	def on_press(self, event, editor):
+		raise NotImplementedError()
+		
+	def on_drag(self, event, editor):
+		raise NotImplementedError()
+		
+	def on_release(self, event, editor):
+		raise NotImplementedError()
+
+class Camera_Pan_Tool(Editor_Tool):
 	
 	def __init__(self):
 		self.anchor_xy = np.zeros((2, ))
 		
-	def on_press(self, event):
+	def on_press(self, event, editor):
 		self.anchor_xy = np.array((event.x, event.y))
 		
 	def on_drag(self, event, editor):
@@ -29,12 +40,39 @@ class Camera_Pan_Tool:
 		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
 		
 		self.anchor_xy = new_anchor_xy
+		editor.refresh_canvas()
 		
-		return True
+	def on_release(self, event, editor):
+		self.anchor_xy = np.zeros((2, ))
+
+class Axis_Aligned_Scaling_Tool(Editor_Tool):
+	
+	def __init__(self):
+		self.anchor_xy = np.zeros((2, ))
 		
-	def on_release(self, event):
-		self.anchor_xy = None
+	def on_press(self, event, editor):
+		self.anchor_xy = np.array((event.x, event.y))
 		
+	def on_drag(self, event, editor):
+		new_anchor_xy = np.array((event.x, event.y))
+		
+		diff = new_anchor_xy - self.anchor_xy
+		
+		renderer = editor.renderer
+		#diff /= np.array([renderer.get_width(), renderer.get_height()])
+		
+		
+		renderer.view_params.yaw_rad -= (diff[0] / renderer.get_width()) * 2
+		renderer.view_params.pitch_rad += (diff[1] / renderer.get_height()) * 2
+		
+		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
+		
+		self.anchor_xy = new_anchor_xy
+		editor.refresh_canvas()
+		
+	def on_release(self, event, editor):
+		self.anchor_xy = np.zeros((2, ))
+	
 
 class Scene_Editor(tkinter.Frame):
 	def __init__(self, tk_master, opengl_context):
@@ -44,7 +82,7 @@ class Scene_Editor(tkinter.Frame):
 		self.renderer = render.Renderer(opengl_context)
 		self.setup_interface()
 		
-		self.selected_m1_tool = Camera_Pan_Tool()
+		self.selected_m1_tool = Axis_Aligned_Scaling_Tool()
 		self.selected_m2_tool = Camera_Pan_Tool()
 		
 		self.selected_axis = 0
@@ -150,26 +188,22 @@ class Scene_Editor(tkinter.Frame):
 			self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
 	
 	def _on_canvas_press_m2(self, event):
-		self.selected_m2_tool.on_press(event)
+		self.selected_m2_tool.on_press(event, self)
 		
 	def _on_canvas_drag_m2(self, event):
-		need_refresh = self.selected_m2_tool.on_drag(event, self)
-		if need_refresh:
-			self.refresh_canvas()
+		self.selected_m2_tool.on_drag(event, self)
 		
 	def _on_canvas_release_m2(self, event):
-		self.selected_m2_tool.on_release(event)
+		self.selected_m2_tool.on_release(event, self)
 		
 	def _on_canvas_press_m1(self, event):
-		self.selected_m1_tool.on_press(event)
+		self.selected_m1_tool.on_press(event, self)
 		
 	def _on_canvas_drag_m1(self, event):
-		need_refresh = self.selected_m1_tool.on_drag(event, self)
-		if need_refresh:
-			self.refresh_canvas()
+		self.selected_m1_tool.on_drag(event, self)
 		
 	def _on_canvas_release_m1(self, event):
-		self.selected_m1_tool.on_release(event)
+		self.selected_m1_tool.on_release(event, self)
 	
 	
 	def _on_canvas_reconfig(self,event):
