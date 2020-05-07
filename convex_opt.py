@@ -1,6 +1,6 @@
 
 # A really low-tech method for finding the input to the minimum of a 1D convex function
-def convex_1d_opt(fun, range_low, range_high, num_iter=100, eps=1e-5):
+def convex_1d_opt(fun, range_low, range_high, num_iter=100, eps=1e-8):
 	
 	# Bisection method with emperical derivative
 	

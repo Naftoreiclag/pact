@@ -7,6 +7,9 @@ import os
 import render
 import tkinter
 import draw_utils
+import convex_opt
+
+SINGULAR_VALUE_EPS = 1e-4
 
 class Control_Line:
 	
@@ -30,7 +33,7 @@ class Control_Line:
 
 def approximate_intersection(a_vecs, b_vecs):
 	if len(a_vecs) < 2:
-		return None
+		return None, 0
 	dim = b_vecs[0].shape[0]
 	
 	quad_B = np.zeros((dim, dim))
@@ -53,15 +56,11 @@ def approximate_intersection(a_vecs, b_vecs):
 	# It is easily provable that sum(singular_vals) = trace(quad_B) = N
 	# Since tr(P_I) = 1
 	
-	# Heuristic
-	if small_sing_n < 1e-4:
-		return None
-	
 	# solve:
 	try:
-		return np.linalg.solve(quad_B, quad_a)
+		return np.linalg.solve(quad_B, quad_a), small_sing_n
 	except np.linalg.LinAlgError as e:
-		return None
+		return None, small_sing_n
 	
 def compute_centroid(tri_points):
 	
@@ -75,7 +74,10 @@ def compute_centroid(tri_points):
 	line_starts = tri_points
 	line_dirs = [simple_orthogonal(x) for x in [dir_bc, dir_ca, dir_ab]]
 	
-	intersection = approximate_intersection(line_starts, line_dirs)
+	intersection, _ = approximate_intersection(line_starts, line_dirs)
+	
+	if intersection is None:
+		return None, None
 	
 	midpoint_ab = (tri_points[0] + tri_points[1]) / 2
 	midpoint_bc = (tri_points[1] + tri_points[2]) / 2
@@ -139,7 +141,7 @@ class Calibration_Editor:
 	def setup_interface(self):
 		
 		self.tk_canvas = tkinter.Canvas(self.tk_master, width=800, height=800)
-		self.tk_canvas.pack()
+		self.tk_canvas.pack(expand=True, fill='both')
 		
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
 		
@@ -252,7 +254,13 @@ class Calibration_Editor:
 		self.last_m2_mouse_pos = np.array((event.x, event.y))
 		
 	def _recalc_intersections(self):
-		self.intersection_points = solve_vanishing_points(self.control_lines, self.num_channels)
+		self.intersection_points, singular_vals = solve_vanishing_points(self.control_lines, self.num_channels)
+		
+		# Remove bad intersection points
+		for i, s in enumerate(singular_vals):
+			if s < SINGULAR_VALUE_EPS:
+				self.intersection_points[i] = None
+		
 		if not any(x is None for x in self.intersection_points):
 			self.centroid_preview, _ = compute_centroid(self.intersection_points)
 		else:
@@ -397,6 +405,7 @@ def solve_vanishing_points(control_lines, num_channels):
 	if type(control_lines) == dict:
 		control_lines = load_control_lines_from_json(control_lines)
 	intersection_points = []
+	singular_values = []
 	
 	for channel in range(num_channels):
 		
@@ -408,20 +417,79 @@ def solve_vanishing_points(control_lines, num_channels):
 				a_vecs.append(con_line.start_pos)
 				b_vecs.append(con_line.end_pos - con_line.start_pos)
 		
-		intersect = approximate_intersection(a_vecs, b_vecs)
+		intersect, singular_val = approximate_intersection(a_vecs, b_vecs)
 		intersection_points.append(intersect)
+		singular_values.append(singular_val)
 		
-	return intersection_points
+	return intersection_points, singular_values
+		
 		
 def solve_perspective(control_lines, image_width, image_height):
 	if type(control_lines) == dict:
 		control_lines = load_control_lines_from_json(control_lines)
 	
-	vanishing_points = solve_vanishing_points(control_lines, 3)
+	vanishing_points, singular_values = solve_vanishing_points(control_lines, 3)
+	
+	for i, sing in enumerate(singular_values):
+		if sing < SINGULAR_VALUE_EPS:
+			vanishing_points[i] = None
 	
 	# Heuristic: check how parallel the lines are
-	
 	num_points = sum(1 for x in vanishing_points if x is not None)
+	
+	# Compute centroid, and check if the camera distance is imaginary (impossible camera settings)
+	if num_points == 3:
+		centroid, cam_dist = compute_centroid(vanishing_points)
+		
+		if cam_dist is None:
+			print('Warning, impossible camera settings. Assuming two-point perspective instead')
+			smallest_idx = np.argmin(singular_values)
+			vanishing_points[smallest_idx] = None
+			num_points -= 1
+	
+	if num_points == 2:
+		
+		arb_vanish_points = [x for x in vanishing_points if x is not None]
+		assert(len(arb_vanish_points) == 2)
+		
+		# perform a single parameter search to find the camera point that
+		# minimizes the FOV
+		
+		arb_vanish_points_dist = np.linalg.norm(arb_vanish_points[0] - arb_vanish_points[1])
+		
+		corners = np.array([
+			[0, 0],
+			[image_width, 0],
+			[0, image_height],
+			[image_width, image_height],
+		])
+		
+		def fov_cost(camera_loc):
+			ratios = np.zeros(4)
+			for i, corner in enuermate(corners):
+				dist_t = np.linalg.norm(corner - camera_loc[:2])
+				dist_d = camera_loc[2]
+				ratios[i] = dist_t / dist_d
+			return np.max(ratios)
+		
+		def proposed_cam_loc(theta):
+			# theta should be between 0 and 1
+			proposed_centroid = arb_vanish_points[0] * theta + arb_vanish_points[1] * (1-theta)
+			cam_dist = np.sqrt(0.25 - (x - 0.5)**2)*arb_vanish_points_dist
+			cam_loc = np.array([proposed_centroid[0], proposed_centroid[1], cam_dist])
+			return cam_loc
+		
+		def convex_cost_fun(theta):
+			# theta should be between 0 and 1
+			return fov_cost(proposed_cam_loc(theta))
+			
+		best_theta = convex_opt.convex_1d_opt(convex_cost_fun, 0, 1)
+		
+		cam_loc = proposed_cam_loc(best_theta)
+		
+		centroid = cam_loc[:2]
+		cam_dist = cam_loc[2]
+		
 	
 	if num_points == 0:
 		raise RuntimeError('Requires at least 1 vanishing point')
@@ -431,15 +499,10 @@ def solve_perspective(control_lines, image_width, image_height):
 		raise RuntimeError('Two-point perspective not implemented')
 	elif num_points == 3:
 		
-		centroid, dist = compute_centroid(vanishing_points)
-		
-		if dist is None:
-			raise RuntimeError('Impossible camera settings')
-		
 		image_plane_matr = np.eye(4)
 		image_plane_matr[0, 3] = centroid[0]
 		image_plane_matr[1, 3] = centroid[1]
-		image_plane_matr[2, 3] = dist
+		image_plane_matr[2, 3] = cam_dist
 		image_plane_matr[0, 0] = -image_width
 		image_plane_matr[1, 1] = -image_height
 		
@@ -451,9 +514,9 @@ def solve_perspective(control_lines, image_width, image_height):
 		to_y_vanish[:2] = -(vanishing_points[1] - centroid)
 		to_z_vanish[:2] = -(vanishing_points[2] - centroid)
 		
-		to_x_vanish[2] = dist
-		to_y_vanish[2] = dist
-		to_z_vanish[2] = dist
+		to_x_vanish[2] = cam_dist
+		to_y_vanish[2] = cam_dist
+		to_z_vanish[2] = cam_dist
 		
 		to_x_vanish /= np.linalg.norm(to_x_vanish)
 		to_y_vanish /= np.linalg.norm(to_y_vanish)
@@ -467,9 +530,9 @@ def solve_perspective(control_lines, image_width, image_height):
 		undo_image_rotation = image_rotation.T
 		
 		downscale_matr = np.eye(4)
-		downscale_matr[0, 0] = 1/dist
-		downscale_matr[1, 1] = 1/dist
-		downscale_matr[2, 2] = 1/dist
+		downscale_matr[0, 0] = 1/cam_dist
+		downscale_matr[1, 1] = 1/cam_dist
+		downscale_matr[2, 2] = 1/cam_dist
 		
 		heuristic_matr = np.eye(4)
 		

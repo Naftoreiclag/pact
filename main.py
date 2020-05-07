@@ -276,7 +276,7 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	fname = 'ignore/data/piero.jpg'
+	fname = 'ignore/data/barn.jpg'
 	if False:
 		editor = Scene_Editor(tk_root, ctx)
 		editor.add_skybox_from_file(None)
