@@ -9,8 +9,10 @@ import numpy as np
 import os
 import io_utils
 
-class Scene_Editor():
+class Scene_Editor(tkinter.Frame):
 	def __init__(self, tk_master, opengl_context):
+		tkinter.Frame.__init__(self, tk_master)
+		
 		self.tk_master = tk_master
 		self.anchor_xy = np.zeros((2, ))
 		self.renderer = render.Renderer(opengl_context)
@@ -20,6 +22,19 @@ class Scene_Editor():
 	def setup_interface(self):
 		
 		tk_master = self.tk_master
+		
+		self.tk_menubar = tkinter.Menu(self.tk_master)
+		tk_master.config(menu=self.tk_menubar)
+		
+		def test():
+			print('asdf')
+		
+		self.tk_menubar_file = tkinter.Menu(self.tk_menubar)
+		self.tk_menubar_file.add_command(label='Exit', command=test)
+		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
+		
+		
+		
 		
 		self.tk_canvas = tkinter.Canvas(tk_master, width=800, height=800)
 		self.tk_canvas.grid(row=100, column=100, sticky='nsew')
@@ -44,7 +59,7 @@ class Scene_Editor():
 			editor.refresh_canvas()
 		
 		tk_frame = tkinter.Frame(tk_master)
-		tk_frame.grid(row=99, column=100)
+		tk_frame.grid(row=99, column=100, columnspan=2)
 		
 		parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
 		parent_frame.grid(row=100, column=101, sticky='ns')
@@ -61,9 +76,9 @@ class Scene_Editor():
 			
 		
 		button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
-		button_save.grid(row=100, column=100)
+		button_save.grid(row=100, column=100, sticky='w')
 		button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
-		button_load.grid(row=100, column=101)
+		button_load.grid(row=100, column=101, sticky='w')
 		
 	def setup_binds(self):
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
@@ -156,6 +171,12 @@ def create_scrollable(master):
 def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
+	
+	tk_root.lift()
+	tk_root.focus()
+	tk_root.focus_force()
+	tk_root.grab_set()
+	tk_root.grab_release()
 		
 	ctx = moderngl.create_standalone_context()
 	
