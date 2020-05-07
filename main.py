@@ -264,11 +264,12 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	editor = Scene_Editor(tk_root, ctx)
-	
-	obj = editor.add_pano_obj_from_file('ignore/data/porch.jpg')
-	
-	editor.selected_object = obj
+	if False:
+		editor = Scene_Editor(tk_root, ctx)
+		obj = editor.add_pano_obj_from_file('ignore/data/porch.jpg')
+		editor.selected_object = obj
+	else:
+		editor = calibration.Calibration_Editor(tk_root, ctx, 'ignore/data/piero.jpg')
 	
 	tk_root.mainloop()
 

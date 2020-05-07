@@ -3,7 +3,10 @@ from PIL import Image
 from PIL import ImageTk
 import numpy as np
 import io_utils
+import os
 import render
+import tkinter
+import draw_utils
 
 class Control_Line:
 	
@@ -93,13 +96,16 @@ def compute_centroid(tri_points):
 	
 	return intersection, dual_dist
 	
-class Calibration:
+class Calibration_Editor:
 	
-	def __init__(self, tk_canvas, opengl_context, image, save_data=None):
+	def __init__(self, tk_master, opengl_context, image_fname, save_data=None):
 		
-		self.image = image
+		self.image_fname = image_fname
+		self.image = Image.open(image_fname)
 		self.image_dimensions = np.array((self.image.width, self.image.height))
-		self.tk_canvas = tk_canvas
+		self.tk_master = tk_master
+		self.setup_interface()
+		
 		
 		self.renderer = render.Single_Image_Renderer(opengl_context, self.image)
 		
@@ -119,12 +125,15 @@ class Calibration:
 		
 		self.look_pos = np.zeros(2,)
 		
-		self.setup_binds()
 		
 		if save_data is not None:
 			self.load_from_json(save_data)
+			
+	def setup_interface(self):
 		
-	def setup_binds(self):
+		self.tk_canvas = tkinter.Canvas(self.tk_master, width=800, height=800)
+		self.tk_canvas.pack()
+		
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
 		
 		self.tk_canvas.bind('<Key>', self._on_canvas_key)
@@ -136,6 +145,23 @@ class Calibration:
 		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
 		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
 		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
+		
+		fname_leafless, fname_leaf = os.path.splitext(self.image_fname)
+		fname_transform = fname_leafless + '.json'
+	
+		def on_button_save():
+			json_data = self.save_to_json()
+			io_utils.json_save(json_data, fname_transform)
+			print('Save to {}'.format(fname_transform))
+		def on_button_load():
+			json_data = io_utils.json_load(fname_transform)
+			self.load_from_json(json_data)
+			print('Load from {}'.format(fname_transform))
+			
+		button1 = tkinter.Button(self.tk_master, text='save', command=on_button_save)
+		button1.pack()
+		button2 = tkinter.Button(self.tk_master, text='load', command=on_button_load)
+		button2.pack()
 
 	def _on_canvas_mousewheel(self, event):
 		
@@ -185,33 +211,33 @@ class Calibration:
 			end = image_draw_point + (con_line.end_pos * self.scale_factor)
 			
 			
-			draw_line_segment(start, end, 'black', 5)
-			draw_disk(start, 6, 'black')
-			draw_disk(end, 6, 'black')
+			draw_utils.draw_line_segment(self.tk_canvas, start, end, fill='black', width=5)
+			draw_utils.draw_disk(self.tk_canvas, start, 6, fill='black')
+			draw_utils.draw_disk(self.tk_canvas, end, 6, fill='black')
 			
 			color = self.channel_colors[con_line.channel]
 			
-			draw_line_segment(start, end, color, 3)
-			draw_disk(start, 5, color)
-			draw_disk(end, 5, color)
+			draw_utils.draw_line_segment(self.tk_canvas, start, end, fill=color, width=3)
+			draw_utils.draw_disk(self.tk_canvas, start, 5, fill=color)
+			draw_utils.draw_disk(self.tk_canvas, end, 5, fill=color)
 			
-			draw_line(start, end, color, 1)
+			draw_utils.draw_line(self.tk_canvas, start, end, fill=color, width=1)
 		
 		for channel_idx, point in enumerate(self.intersection_points):
 			if point is None:
 				continue
 			draw_at = image_draw_point + (point * self.scale_factor)
 			
-			draw_disk(draw_at, 9, 'black')
+			draw_utils.draw_disk(self.tk_canvas, draw_at, 9, fill='black')
 			
 			color = self.channel_colors[channel_idx]
-			draw_disk(draw_at, 8, color)
+			draw_utils.draw_disk(self.tk_canvas, draw_at, 8, fill=color)
 	
 		if self.centroid_preview is not None:
 			
 			draw_at = image_draw_point + (self.centroid_preview * self.scale_factor)
-			draw_disk(draw_at, 4, 'black')
-			draw_disk(draw_at, 3, 'white')
+			draw_utils.draw_disk(self.tk_canvas, draw_at, 4, fill='black')
+			draw_utils.draw_disk(self.tk_canvas, draw_at, 3, fill='white')
 			
 	
 	def _on_canvas_press_m2(self, event):
@@ -346,7 +372,7 @@ class Calibration:
 			image_plane_matrix = solve_perspective(self.control_lines, self.image_dimensions[0], self.image_dimensions[1])
 			retval['image_plane_matrix'] = io_utils.save_matrix_to_json(image_plane_matrix)
 		except RuntimeError as e:
-			print('Error! Unable to solve for perspective: {}'.format(e.what()))
+			print('Warn! Unable to solve for perspective: {}'.format(e))
 		
 		return retval
 		
@@ -391,9 +417,9 @@ def solve_perspective(control_lines, image_width, image_height):
 	if num_points == 0:
 		raise RuntimeError('Requires at least 1 vanishing point')
 	elif num_points == 1:
-		raise NotImplementedError()
+		raise RuntimeError('One-point perspective not implemented')
 	elif num_points == 2:
-		raise NotImplementedError()
+		raise RuntimeError('Two-point perspective not implemented')
 	elif num_points == 3:
 		
 		centroid, dist = compute_centroid(vanishing_points)

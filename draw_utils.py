@@ -1,4 +1,6 @@
 
+import numpy as np
+
 def draw_disk(tk_canvas, pos, radius, **kwargs):
 	bbox_min = pos - radius
 	bbox_max = pos + radius
@@ -8,7 +10,7 @@ def draw_line_segment(tk_canvas, start, end, **kwargs):
 	tk_canvas.create_line(start[0], start[1], end[0], end[1], **kwargs)
 
 def draw_line(tk_canvas, p1, p2, **kwargs):
-	bbox_max = canvas_size
+	bbox_max = np.array((tk_canvas.winfo_width(), tk_canvas.winfo_height()))
 	bbox_min = np.zeros(2)
 	
 	line_dir = p2 - p1
