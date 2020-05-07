@@ -119,7 +119,7 @@ class Renderer:
 			self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
 		
 	def add_pano_obj(self, image, model_matr=None):
-		texture = self.ctx.texture(image.size, 3, image.tobytes())
+		texture = pil_image_to_texture(self.ctx, image)
 		texture.anisotropy = 16.0
 		texture.build_mipmaps()
 		if model_matr is None:
@@ -351,7 +351,7 @@ class Single_Image_Renderer:
 	def __init__(self, opengl_context, image, caching=True):
 		self.ctx = opengl_context
 		self.image = image
-		self.texture = self.ctx.texture(image.size, 3, self.image.tobytes())
+		self.texture = pil_image_to_texture(self.ctx, image)
 		self.texture.build_mipmaps()
 		
 		self.use_caching = caching
@@ -463,6 +463,13 @@ class Single_Image_Renderer:
 		
 		return image, True
 	
+def pil_image_to_texture(ctx, image):
+	mode = image.mode
+	if mode == 'RGB':
+		return ctx.texture(image.size, 3, image.tobytes())
+	elif mode == 'RGBA':
+		return ctx.texture(image.size, 4, image.tobytes())
+	raise RuntimeError('Unsupported color depth: {}'.format(mode))
 	
 
 if __name__ == '__main__':

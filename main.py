@@ -188,6 +188,18 @@ class Scene_Editor(tkinter.Frame):
 				self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
 				self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
 				self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
+				
+	def add_skybox_from_file(self, fname_image):
+		skybox_textures = [
+			Image.open('ignore/Bridge2/posx.jpg'),
+			Image.open('ignore/Bridge2/negx.jpg'),
+			Image.open('ignore/Bridge2/posy.jpg'),
+			Image.open('ignore/Bridge2/negy.jpg'),
+			Image.open('ignore/Bridge2/posz.jpg'),
+			Image.open('ignore/Bridge2/negz.jpg'),
+		]
+		
+		return self.renderer.add_skybox(skybox_textures)
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()
@@ -264,12 +276,13 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	if False:
+	if True:
 		editor = Scene_Editor(tk_root, ctx)
-		obj = editor.add_pano_obj_from_file('ignore/data/porch.jpg')
+		editor.add_skybox_from_file(None)
+		obj = editor.add_pano_obj_from_file('ignore/data/bench.png')
 		editor.selected_object = obj
 	else:
-		editor = calibration.Calibration_Editor(tk_root, ctx, 'ignore/data/piero.jpg')
+		editor = calibration.Calibration_Editor(tk_root, ctx, 'ignore/data/bench.png')
 	
 	tk_root.mainloop()
 
