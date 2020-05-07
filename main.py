@@ -10,11 +10,60 @@ import os
 import io_utils
 
 class Scene_Editor():
-	def __init__(self, tk_canvas, opengl_context):
+	def __init__(self, tk_master, opengl_context):
+		self.tk_master = tk_master
 		self.anchor_xy = np.zeros((2, ))
-		self.tk_canvas = tk_canvas
 		self.renderer = render.Renderer(opengl_context)
+		self.setup_interface()
 		self.setup_binds()
+		
+	def setup_interface(self):
+		
+		tk_master = self.tk_master
+		
+		self.tk_canvas = tkinter.Canvas(tk_master, width=800, height=800)
+		self.tk_canvas.grid(row=100, column=100, sticky='nsew')
+		
+		tk_master.columnconfigure(100, weight=1)
+		tk_master.rowconfigure(100, weight=1)
+
+		def on_button_save():
+			return
+			json_data = calib_tool.save_to_json()
+			io_utils.json_save(json_data, example_fname + '.json')
+		def on_button_load():
+			return
+			json_data = io_utils.json_load(example_fname + '.json')
+			calib_tool.load_from_json(json_data)
+
+		def clicky_1():
+			editor.renderer._debug_scalar *= 0.9
+			editor.refresh_canvas()
+		def clicky_2():
+			editor.renderer._debug_scalar /= 0.9
+			editor.refresh_canvas()
+		
+		tk_frame = tkinter.Frame(tk_master)
+		tk_frame.grid(row=99, column=100)
+		
+		parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
+		parent_frame.grid(row=100, column=101, sticky='ns')
+		
+		scrollable = create_scrollable(parent_frame)
+		button_idx = 0
+		
+		def add_button():
+			nonlocal button_idx
+			button = tkinter.Button(scrollable, text='test', command=add_button)
+			button.grid(row=button_idx, column=0)
+			button_idx += 1
+		add_button()
+			
+		
+		button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
+		button_save.grid(row=100, column=100)
+		button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
+		button_load.grid(row=100, column=101)
 		
 	def setup_binds(self):
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
@@ -51,7 +100,7 @@ class Scene_Editor():
 		rotate90[2,2] = 0
 		
 		
-		for asdf in [np.eye(4), rotate90]:
+		for asdf in [np.eye(4)]:
 			self.renderer.add_pano_obj(image, asdf @ matr)
 			self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
 			self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
@@ -107,83 +156,12 @@ def create_scrollable(master):
 def main():
 	tk_root = tkinter.Tk()
 	tk_root.title('hello world')
-	
-	tk_canvas = tkinter.Canvas(tk_root, width=800, height=800)
-	tk_canvas.grid(row=100, column=100, sticky='nsew')
-	
-	tk_root.columnconfigure(100, weight=1)
-	tk_root.rowconfigure(100, weight=1)
-	
+		
 	ctx = moderngl.create_standalone_context()
-
-	example_fname = 'ignore/data/bears2'
-	img = Image.open(example_fname + '.jpg')
-	if False:
-		'''
-		editor = Scene_Editor(tk_canvas, ctx)
-
-		matr = calibration.solve_perspective(json_load('ignore/bears.json'), img.width, img.height)
-		
-		flip_x = np.eye(4)
-		flip_x[0,0] = -1
-		flip_z = np.eye(4)
-		flip_z[2,2] = -1
-		
-		editor.renderer.add_pano_obj(img, matr)
-		editor.renderer.add_pano_obj(img, flip_x @ matr)
-		editor.renderer.add_pano_obj(img, flip_z @ matr)
-		editor.renderer.add_pano_obj(img, flip_z @ flip_x @ matr)
-		'''
-		editor = Scene_Editor(tk_canvas, ctx)
-		editor.add_pano_obj_from_file(example_fname + '.jpg')
-	else:
-		calib_tool = calibration.Calibration(tk_canvas, ctx, img)
-
-	def on_button_save():
-		return
-		json_data = calib_tool.save_to_json()
-		io_utils.json_save(json_data, example_fname + '.json')
-	def on_button_load():
-		return
-		json_data = io_utils.json_load(example_fname + '.json')
-		calib_tool.load_from_json(json_data)
-
-	def clicky_1():
-		editor.renderer._debug_scalar *= 0.9
-		editor.refresh_canvas()
-	def clicky_2():
-		editor.renderer._debug_scalar /= 0.9
-		editor.refresh_canvas()
-
 	
-	tk_frame = tkinter.Frame(tk_root)
-	tk_frame.grid(row=99, column=100)
+	editor = Scene_Editor(tk_root, ctx)
 	
-	parent_frame = tkinter.Frame(tk_root, relief=tkinter.GROOVE, bd=1)
-	parent_frame.grid(row=100, column=101, sticky='ns')
-	
-	scrollable = create_scrollable(parent_frame)
-	button_idx = 0
-	
-	def add_button():
-		nonlocal button_idx
-		button = tkinter.Button(scrollable, text='test', command=add_button)
-		button.grid(row=button_idx, column=0)
-		button_idx += 1
-	add_button()
-		
-	
-	button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
-	button_save.grid(row=100, column=100)
-	button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
-	button_load.grid(row=100, column=101)
-	
-	if False:
-		
-		button1 = tkinter.Button(tk_root, text='clicky1', command=clicky_1)
-		button1.pack()
-		button2 = tkinter.Button(tk_root, text='clicky2', command=clicky_2)
-		button2.pack()
+	editor.add_pano_obj_from_file('ignore/data/porch.jpg')
 	
 	tk_root.mainloop()
 
