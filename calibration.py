@@ -449,6 +449,42 @@ def solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish
 	
 	return undo_image_rotation @ downscale_matr @ image_plane_matr
 		
+def solve_perspective_2_vanish(vanishing_points):
+	pass
+		
+def solve_perspective_3_vanish(vanishing_points):
+	centroid, cam_dist = compute_centroid(vanishing_points)
+	
+	to_x_vanish = np.zeros(4,)
+	to_y_vanish = np.zeros(4,)
+	to_z_vanish = np.zeros(4,)
+	
+	to_x_vanish[:2] = -(vanishing_points[0] - centroid)
+	to_y_vanish[:2] = -(vanishing_points[1] - centroid)
+	to_z_vanish[:2] = -(vanishing_points[2] - centroid)
+	
+	to_x_vanish[2] = cam_dist
+	to_y_vanish[2] = cam_dist
+	to_z_vanish[2] = cam_dist
+	
+	to_x_vanish /= np.linalg.norm(to_x_vanish)
+	to_y_vanish /= np.linalg.norm(to_y_vanish)
+	to_z_vanish /= np.linalg.norm(to_z_vanish)
+	
+	camera_loc = np.array([centroid[0], centroid[1], cam_dist])
+	
+	heuristic_matr = np.eye(4)
+	
+	# Small heuristic: if the y vanishing point is below the other two, then flip the image
+	if vanishing_points[1][1] > centroid[1]:
+		heuristic_matr[1, 1] = -1
+		
+	# Similarly, if the x vanishing point is to the right of the z vanishing point, then flip the image horizontally
+	if vanishing_points[0][0] > vanishing_points[2][0]:
+		heuristic_matr[0, 0] = -1
+		
+	return camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish
+		
 def solve_perspective(control_lines, image_width, image_height):
 	if type(control_lines) == dict:
 		control_lines = load_control_lines_from_json(control_lines)
@@ -471,6 +507,8 @@ def solve_perspective(control_lines, image_width, image_height):
 			smallest_idx = np.argmin(singular_values)
 			vanishing_points[smallest_idx] = None
 			num_points -= 1
+			
+	
 	
 	if num_points == 2:
 		
@@ -524,35 +562,9 @@ def solve_perspective(control_lines, image_width, image_height):
 		raise RuntimeError('Two-point perspective not implemented')
 	elif num_points == 3:
 		
-		camera_loc = np.array([centroid[0], centroid[1], cam_dist])
-		
-		to_x_vanish = np.zeros(4,)
-		to_y_vanish = np.zeros(4,)
-		to_z_vanish = np.zeros(4,)
-		
-		to_x_vanish[:2] = -(vanishing_points[0] - centroid)
-		to_y_vanish[:2] = -(vanishing_points[1] - centroid)
-		to_z_vanish[:2] = -(vanishing_points[2] - centroid)
-		
-		to_x_vanish[2] = cam_dist
-		to_y_vanish[2] = cam_dist
-		to_z_vanish[2] = cam_dist
-		
-		to_x_vanish /= np.linalg.norm(to_x_vanish)
-		to_y_vanish /= np.linalg.norm(to_y_vanish)
-		to_z_vanish /= np.linalg.norm(to_z_vanish)
+		camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish = solve_perspective_3_vanish(vanishing_points)
 		
 		magic_matrix = solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish, to_z_vanish)
-		
-		heuristic_matr = np.eye(4)
-		
-		# Small heuristic: if the y vanishing point is below the other two, then flip the image
-		if vanishing_points[1][1] > centroid[1]:
-			heuristic_matr[1, 1] = -1
-			
-		# Similarly, if the x vanishing point is to the right of the z vanishing point, then flip the image horizontally
-		if vanishing_points[0][0] > vanishing_points[2][0]:
-			heuristic_matr[0, 0] = -1
 		
 		return heuristic_matr @ magic_matrix
 	else:
