@@ -24,54 +24,52 @@ class Editor_Tool:
 class Camera_Pan_Tool(Editor_Tool):
 	
 	def __init__(self):
-		self.anchor_xy = np.zeros((2, ))
+		self.prev_xy = np.zeros((2, ))
 		
 	def on_press(self, event, editor):
-		self.anchor_xy = np.array((event.x, event.y))
+		self.prev_xy = np.array((event.x, event.y))
 		
 	def on_drag(self, event, editor):
-		new_anchor_xy = np.array((event.x, event.y))
+		new_prev_xy = np.array((event.x, event.y))
 		
-		diff = new_anchor_xy - self.anchor_xy
+		diff = new_prev_xy - self.prev_xy
 		renderer = editor.renderer
 		renderer.view_params.yaw_rad -= (diff[0] / renderer.get_width()) * 2
 		renderer.view_params.pitch_rad += (diff[1] / renderer.get_height()) * 2
 		
 		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
 		
-		self.anchor_xy = new_anchor_xy
+		self.prev_xy = new_prev_xy
 		editor.refresh_canvas()
 		
 	def on_release(self, event, editor):
-		self.anchor_xy = np.zeros((2, ))
+		self.prev_xy = np.zeros((2, ))
 
 class Axis_Aligned_Scaling_Tool(Editor_Tool):
 	
 	def __init__(self):
-		self.anchor_xy = np.zeros((2, ))
+		self.prev_xy = np.zeros((2, ))
 		
 	def on_press(self, event, editor):
-		self.anchor_xy = np.array((event.x, event.y))
+		self.prev_xy = np.array((event.x, event.y))
 		
 	def on_drag(self, event, editor):
-		new_anchor_xy = np.array((event.x, event.y))
+		new_prev_xy = np.array((event.x, event.y))
 		
-		diff = new_anchor_xy - self.anchor_xy
+		diff = new_prev_xy - self.prev_xy
 		
-		renderer = editor.renderer
-		#diff /= np.array([renderer.get_width(), renderer.get_height()])
+		if editor.selected_object is not None:
+			scaling = np.eye(4)
+			axis = editor.selected_axis
+			scaling[axis,axis] = np.exp((diff[0] / editor.renderer.get_width()))
+			editor.selected_object.model_matr = scaling @ editor.selected_object.model_matr
+			editor.selected_object.renormalize_model_matrix()
 		
-		
-		renderer.view_params.yaw_rad -= (diff[0] / renderer.get_width()) * 2
-		renderer.view_params.pitch_rad += (diff[1] / renderer.get_height()) * 2
-		
-		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
-		
-		self.anchor_xy = new_anchor_xy
+		self.prev_xy = new_prev_xy
 		editor.refresh_canvas()
 		
 	def on_release(self, event, editor):
-		self.anchor_xy = np.zeros((2, ))
+		self.prev_xy = np.zeros((2, ))
 	
 
 class Scene_Editor(tkinter.Frame):
@@ -110,6 +108,7 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_canvas.bind('<ButtonPress-1>', self._on_canvas_press_m1)
 		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
 		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
+		self.tk_canvas.bind('<Key>', self._on_canvas_key)
 		
 		tk_master.columnconfigure(100, weight=1)
 		tk_master.rowconfigure(100, weight=1)
@@ -169,25 +168,29 @@ class Scene_Editor(tkinter.Frame):
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
-		flip_x = np.eye(4)
-		flip_x[0,0] = -1
-		flip_z = np.eye(4)
-		flip_z[2,2] = -1
+		return self.renderer.add_pano_obj(image, matr)
 		
-		rotate90 = np.eye(4)
-		rotate90[0,0] = 0
-		rotate90[2,0] = 1
-		rotate90[0,2] = -1
-		rotate90[2,2] = 0
-		
-		
-		for asdf in [np.eye(4)]:
-			self.renderer.add_pano_obj(image, asdf @ matr)
-			self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
-			self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
-			self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
+		if False:
+			flip_x = np.eye(4)
+			flip_x[0,0] = -1
+			flip_z = np.eye(4)
+			flip_z[2,2] = -1
+			
+			rotate90 = np.eye(4)
+			rotate90[0,0] = 0
+			rotate90[2,0] = 1
+			rotate90[0,2] = -1
+			rotate90[2,2] = 0
+			
+			
+			for asdf in [np.eye(4)]:
+				self.renderer.add_pano_obj(image, asdf @ matr)
+				self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
+				self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
+				self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
 	
 	def _on_canvas_press_m2(self, event):
+		self.tk_canvas.focus_set()
 		self.selected_m2_tool.on_press(event, self)
 		
 	def _on_canvas_drag_m2(self, event):
@@ -197,6 +200,7 @@ class Scene_Editor(tkinter.Frame):
 		self.selected_m2_tool.on_release(event, self)
 		
 	def _on_canvas_press_m1(self, event):
+		self.tk_canvas.focus_set()
 		self.selected_m1_tool.on_press(event, self)
 		
 	def _on_canvas_drag_m1(self, event):
@@ -205,6 +209,19 @@ class Scene_Editor(tkinter.Frame):
 	def _on_canvas_release_m1(self, event):
 		self.selected_m1_tool.on_release(event, self)
 	
+	def _on_canvas_key(self, event):
+		
+		binds = {
+			'1' : 0,
+			'2' : 1,
+			'3' : 2,
+		}
+		
+		key = event.char
+	
+		if key in binds:
+			self.selected_axis = binds[key]
+			print('Selected axis {}'.format(self.selected_axis))
 	
 	def _on_canvas_reconfig(self,event):
 		width = event.width
@@ -249,7 +266,9 @@ def main():
 	
 	editor = Scene_Editor(tk_root, ctx)
 	
-	editor.add_pano_obj_from_file('ignore/data/porch.jpg')
+	obj = editor.add_pano_obj_from_file('ignore/data/porch.jpg')
+	
+	editor.selected_object = obj
 	
 	tk_root.mainloop()
 

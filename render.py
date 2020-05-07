@@ -13,6 +13,10 @@ class PanoObj:
 		self.texture = texture
 		self.model_matr = model_matr
 		self.is_skybox = is_skybox
+		
+	def renormalize_model_matrix(self):
+		center_point = self.model_matr @ np.array([0.5, 0.5, 0.0, 1.0])
+		self.model_matr[:3,:4] *= 10 / np.linalg.norm(center_point[:3])
 
 class View_Params:
 	def __init__(self, pitch_rad=0, yaw_rad=0):
@@ -116,6 +120,7 @@ class Renderer:
 		
 	def add_pano_obj(self, image, model_matr=None):
 		texture = self.ctx.texture(image.size, 3, image.tobytes())
+		texture.anisotropy = 16.0
 		texture.build_mipmaps()
 		if model_matr is None:
 			model_matr = np.eye(4)
