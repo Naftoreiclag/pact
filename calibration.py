@@ -33,26 +33,33 @@ def approximate_intersection(a_vecs, b_vecs):
 		return None
 	dim = b_vecs[0].shape[0]
 	
-	quad_A = np.zeros((dim, dim))
-	quad_b = np.zeros(dim)
+	quad_B = np.zeros((dim, dim))
+	quad_a = np.zeros(dim)
 	
 	for a_vec, b_vec in zip(a_vecs, b_vecs):
 		P = np.outer(b_vec, b_vec) / np.inner(b_vec, b_vec)
-		P_I = P - np.eye(dim)
-		P_I_sq = P_I.T @ P_I
+		P_I = np.eye(dim) - P
 		
-		quad_A += P_I_sq
-		quad_b += P_I_sq @ a_vec
+		quad_B += P_I
+		quad_a += P_I @ a_vec
 	
 	# quadratic is of form
-	# x'Ax - 2b'x + c
+	# x'Bx - 2a'x + c
 	
-	if np.linalg.matrix_rank(quad_A) < 2:
+	_, singular_vals, _ = np.linalg.svd(quad_B)
+	small_sing = singular_vals[1]
+	small_sing_n = small_sing / len(a_vecs)
+	
+	# It is easily provable that sum(singular_vals) = trace(quad_B) = N
+	# Since tr(P_I) = 1
+	
+	# Heuristic
+	if small_sing_n < 1e-4:
 		return None
 	
 	# solve:
 	try:
-		return np.linalg.solve(quad_A, quad_b)
+		return np.linalg.solve(quad_B, quad_a)
 	except np.linalg.LinAlgError as e:
 		return None
 	
@@ -412,6 +419,8 @@ def solve_perspective(control_lines, image_width, image_height):
 	
 	vanishing_points = solve_vanishing_points(control_lines, 3)
 	
+	# Heuristic: check how parallel the lines are
+	
 	num_points = sum(1 for x in vanishing_points if x is not None)
 	
 	if num_points == 0:
@@ -465,8 +474,12 @@ def solve_perspective(control_lines, image_width, image_height):
 		heuristic_matr = np.eye(4)
 		
 		# Small heuristic: if the y vanishing point is below the other two, then flip the image
-		if vanishing_points[1][1] > (vanishing_points[0][1] + vanishing_points[2][1]) / 2:
+		if vanishing_points[1][1] > centroid[1]:
 			heuristic_matr[1, 1] = -1
+			
+		# Similarly, if the x vanishing point is to the right of the z vanishing point, then flip the image horizontally
+		if vanishing_points[0][0] > vanishing_points[2][0]:
+			heuristic_matr[0, 0] = -1
 		
 		return heuristic_matr @ undo_image_rotation @ downscale_matr @ image_plane_matr
 	else:

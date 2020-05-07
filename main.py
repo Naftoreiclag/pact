@@ -276,13 +276,14 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	if True:
+	fname = 'ignore/data/piero.jpg'
+	if False:
 		editor = Scene_Editor(tk_root, ctx)
 		editor.add_skybox_from_file(None)
-		obj = editor.add_pano_obj_from_file('ignore/data/bench.png')
+		obj = editor.add_pano_obj_from_file(fname)
 		editor.selected_object = obj
 	else:
-		editor = calibration.Calibration_Editor(tk_root, ctx, 'ignore/data/bench.png')
+		editor = calibration.Calibration_Editor(tk_root, ctx, fname)
 	
 	tk_root.mainloop()
 

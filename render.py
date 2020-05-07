@@ -193,10 +193,10 @@ class Renderer:
 
 				in vec2 vert_uv;
 
-				out vec3 frag_color;
+				out vec4 frag_color;
 
 				void main() {
-					frag_color = texture(unif_texture, vert_uv).xyz;
+					frag_color = texture(unif_texture, vert_uv);
 				}
 			'''
 		)
@@ -225,10 +225,10 @@ class Renderer:
 
 				in vec4 vert_view_dir;
 
-				out vec3 frag_color;
+				out vec4 frag_color;
 
 				void main() {
-					frag_color = texture(unif_texture, vert_view_dir.xyz).xyz;
+					frag_color = texture(unif_texture, vert_view_dir.xyz);
 				}
 			'''
 		)
@@ -305,6 +305,7 @@ class Renderer:
 
 		self.fbo.use()
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
+		self.ctx.enable(moderngl.BLEND)
 		
 		test = np.eye(4)
 		test[2,2] = self._debug_scalar
