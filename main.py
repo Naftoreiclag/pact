@@ -17,7 +17,6 @@ class Scene_Editor(tkinter.Frame):
 		self.anchor_xy = np.zeros((2, ))
 		self.renderer = render.Renderer(opengl_context)
 		self.setup_interface()
-		self.setup_binds()
 		
 	def setup_interface(self):
 		
@@ -26,66 +25,37 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar = tkinter.Menu(self.tk_master)
 		tk_master.config(menu=self.tk_menubar)
 		
-		def test():
-			print('asdf')
-		
 		self.tk_menubar_file = tkinter.Menu(self.tk_menubar)
-		self.tk_menubar_file.add_command(label='Exit', command=test)
+		self.tk_menubar_file.add_command(label='Exit', command=self._on_user_request_exit)
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
-		
-		
-		
 		
 		self.tk_canvas = tkinter.Canvas(tk_master, width=800, height=800)
 		self.tk_canvas.grid(row=100, column=100, sticky='nsew')
-		
-		tk_master.columnconfigure(100, weight=1)
-		tk_master.rowconfigure(100, weight=1)
-
-		def on_button_save():
-			return
-			json_data = calib_tool.save_to_json()
-			io_utils.json_save(json_data, example_fname + '.json')
-		def on_button_load():
-			return
-			json_data = io_utils.json_load(example_fname + '.json')
-			calib_tool.load_from_json(json_data)
-
-		def clicky_1():
-			editor.renderer._debug_scalar *= 0.9
-			editor.refresh_canvas()
-		def clicky_2():
-			editor.renderer._debug_scalar /= 0.9
-			editor.refresh_canvas()
-		
-		tk_frame = tkinter.Frame(tk_master)
-		tk_frame.grid(row=99, column=100, columnspan=2)
-		
-		parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
-		parent_frame.grid(row=100, column=101, sticky='ns')
-		
-		scrollable = create_scrollable(parent_frame)
-		button_idx = 0
-		
-		def add_button():
-			nonlocal button_idx
-			button = tkinter.Button(scrollable, text='test', command=add_button)
-			button.grid(row=button_idx, column=0)
-			button_idx += 1
-		add_button()
-			
-		
-		button_save = tkinter.Button(tk_frame, text='save', command=on_button_save)
-		button_save.grid(row=100, column=100, sticky='w')
-		button_load = tkinter.Button(tk_frame, text='load', command=on_button_load)
-		button_load.grid(row=100, column=101, sticky='w')
-		
-	def setup_binds(self):
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
 		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
 		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
 		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
 		
+		tk_master.columnconfigure(100, weight=1)
+		tk_master.rowconfigure(100, weight=1)
+		
+		self.tk_selection_scrollable_parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
+		self.tk_selection_scrollable_parent_frame.grid(row=100, column=101, sticky='ns')
+		
+		self.tk_selection_scrollable = create_scrollable(self.tk_selection_scrollable_parent_frame)
+		
+		button_idx = 0
+		
+		def add_button():
+			nonlocal button_idx
+			button = tkinter.Button(self.tk_selection_scrollable, text='test', command=add_button)
+			button.grid(row=button_idx, column=0)
+			button_idx += 1
+		add_button()
+	
+	def _on_user_request_exit(self):
+		print('User requested exit')
+	
 	def refresh_canvas(self):
 		image = self.renderer.render()
 		

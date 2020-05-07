@@ -114,7 +114,6 @@ class Renderer:
 			matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
 			self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
 		
-		
 	def add_pano_obj(self, image, model_matr=None):
 		texture = self.ctx.texture(image.size, 3, image.tobytes())
 		texture.build_mipmaps()
@@ -122,6 +121,8 @@ class Renderer:
 			model_matr = np.eye(4)
 		pano_obj = PanoObj(texture, model_matr, False)
 		self.pano_objs.append(pano_obj)
+		
+		return pano_obj
 		
 	def add_skybox(self, images, model_matr=None):
 		faces = [image.tobytes() for image in images]
@@ -133,6 +134,7 @@ class Renderer:
 		pano_obj = PanoObj(texture, model_matr, True)
 		self.pano_objs.append(pano_obj)
 		
+		return pano_obj
 		
 	def look_natural(self, anchor_dir, canvas_x, canvas_y):
 		raise NotImplementedError()
