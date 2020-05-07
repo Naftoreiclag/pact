@@ -276,8 +276,8 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	fname = 'ignore/data/barn.jpg'
-	if False:
+	fname = 'ignore/data/hotel.jpg'
+	if True:
 		editor = Scene_Editor(tk_root, ctx)
 		editor.add_skybox_from_file(None)
 		obj = editor.add_pano_obj_from_file(fname)

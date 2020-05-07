@@ -423,6 +423,31 @@ def solve_vanishing_points(control_lines, num_channels):
 		
 	return intersection_points, singular_values
 		
+def solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish, to_z_vanish):
+
+	centroid = camera_loc[:2]
+	cam_dist = camera_loc[2]
+
+	image_plane_matr = np.eye(4)
+	image_plane_matr[0, 3] = centroid[0]
+	image_plane_matr[1, 3] = centroid[1]
+	image_plane_matr[2, 3] = cam_dist
+	image_plane_matr[0, 0] = -image_width
+	image_plane_matr[1, 1] = -image_height
+	
+	image_rotation = np.eye(4)
+	image_rotation[:, 0] = to_x_vanish
+	image_rotation[:, 1] = to_y_vanish
+	image_rotation[:, 2] = to_z_vanish
+	
+	undo_image_rotation = image_rotation.T
+	
+	downscale_matr = np.eye(4)
+	downscale_matr[0, 0] = 1/cam_dist
+	downscale_matr[1, 1] = 1/cam_dist
+	downscale_matr[2, 2] = 1/cam_dist
+	
+	return undo_image_rotation @ downscale_matr @ image_plane_matr
 		
 def solve_perspective(control_lines, image_width, image_height):
 	if type(control_lines) == dict:
@@ -499,12 +524,7 @@ def solve_perspective(control_lines, image_width, image_height):
 		raise RuntimeError('Two-point perspective not implemented')
 	elif num_points == 3:
 		
-		image_plane_matr = np.eye(4)
-		image_plane_matr[0, 3] = centroid[0]
-		image_plane_matr[1, 3] = centroid[1]
-		image_plane_matr[2, 3] = cam_dist
-		image_plane_matr[0, 0] = -image_width
-		image_plane_matr[1, 1] = -image_height
+		camera_loc = np.array([centroid[0], centroid[1], cam_dist])
 		
 		to_x_vanish = np.zeros(4,)
 		to_y_vanish = np.zeros(4,)
@@ -522,17 +542,7 @@ def solve_perspective(control_lines, image_width, image_height):
 		to_y_vanish /= np.linalg.norm(to_y_vanish)
 		to_z_vanish /= np.linalg.norm(to_z_vanish)
 		
-		image_rotation = np.eye(4)
-		image_rotation[:, 0] = to_x_vanish
-		image_rotation[:, 1] = to_y_vanish
-		image_rotation[:, 2] = to_z_vanish
-		
-		undo_image_rotation = image_rotation.T
-		
-		downscale_matr = np.eye(4)
-		downscale_matr[0, 0] = 1/cam_dist
-		downscale_matr[1, 1] = 1/cam_dist
-		downscale_matr[2, 2] = 1/cam_dist
+		magic_matrix = solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish, to_z_vanish)
 		
 		heuristic_matr = np.eye(4)
 		
@@ -544,6 +554,6 @@ def solve_perspective(control_lines, image_width, image_height):
 		if vanishing_points[0][0] > vanishing_points[2][0]:
 			heuristic_matr[0, 0] = -1
 		
-		return heuristic_matr @ undo_image_rotation @ downscale_matr @ image_plane_matr
+		return heuristic_matr @ magic_matrix
 	else:
 		assert(False)
