@@ -10,16 +10,43 @@ import os
 import io_utils
 import draw_utils
 
+class Camera_Pan_Tool:
+	
+	def __init__(self):
+		self.anchor_xy = np.zeros((2, ))
+		
+	def on_press(self, event):
+		self.anchor_xy = np.array((event.x, event.y))
+		
+	def on_drag(self, event, editor):
+		new_anchor_xy = np.array((event.x, event.y))
+		
+		diff = new_anchor_xy - self.anchor_xy
+		renderer = editor.renderer
+		renderer.view_params.yaw_rad -= (diff[0] / renderer.get_width()) * 2
+		renderer.view_params.pitch_rad += (diff[1] / renderer.get_height()) * 2
+		
+		renderer.view_params.pitch_rad = np.clip(renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
+		
+		self.anchor_xy = new_anchor_xy
+		
+		return True
+		
+	def on_release(self, event):
+		self.anchor_xy = None
+		
+
 class Scene_Editor(tkinter.Frame):
 	def __init__(self, tk_master, opengl_context):
 		tkinter.Frame.__init__(self, tk_master)
 		
 		self.tk_master = tk_master
-		self.anchor_xy = np.zeros((2, ))
 		self.renderer = render.Renderer(opengl_context)
 		self.setup_interface()
 		
-		self.selected_tool = 'aas'
+		self.selected_m1_tool = Camera_Pan_Tool()
+		self.selected_m2_tool = Camera_Pan_Tool()
+		
 		self.selected_axis = 0
 		self.selected_object = None
 		
@@ -42,6 +69,9 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_canvas.bind('<ButtonPress-2>', self._on_canvas_press_m2)
 		self.tk_canvas.bind('<B2-Motion>', self._on_canvas_drag_m2)
 		self.tk_canvas.bind('<ButtonRelease-2>', self._on_canvas_release_m2)
+		self.tk_canvas.bind('<ButtonPress-1>', self._on_canvas_press_m1)
+		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
+		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
 		
 		tk_master.columnconfigure(100, weight=1)
 		tk_master.rowconfigure(100, weight=1)
@@ -120,40 +150,26 @@ class Scene_Editor(tkinter.Frame):
 			self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
 	
 	def _on_canvas_press_m2(self, event):
-		self.anchor_xy = np.array((event.x, event.y))
+		self.selected_m2_tool.on_press(event)
 		
 	def _on_canvas_drag_m2(self, event):
-		new_anchor_xy = np.array((event.x, event.y))
-		
-		diff = new_anchor_xy - self.anchor_xy
-		self.renderer.view_params.yaw_rad -= (diff[0] / self.renderer.get_width()) * 2
-		self.renderer.view_params.pitch_rad += (diff[1] / self.renderer.get_height()) * 2
-		
-		self.renderer.view_params.pitch_rad = np.clip(self.renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
-		
-		self.anchor_xy = new_anchor_xy
-		self.refresh_canvas()
+		need_refresh = self.selected_m2_tool.on_drag(event, self)
+		if need_refresh:
+			self.refresh_canvas()
 		
 	def _on_canvas_release_m2(self, event):
-		self.anchor_xy = None
-	
+		self.selected_m2_tool.on_release(event)
+		
 	def _on_canvas_press_m1(self, event):
-		self.anchor_xy = np.array((event.x, event.y))
+		self.selected_m1_tool.on_press(event)
 		
 	def _on_canvas_drag_m1(self, event):
-		new_anchor_xy = np.array((event.x, event.y))
-		
-		diff = new_anchor_xy - self.anchor_xy
-		self.renderer.view_params.yaw_rad -= (diff[0] / self.renderer.get_width()) * 2
-		self.renderer.view_params.pitch_rad += (diff[1] / self.renderer.get_height()) * 2
-		
-		self.renderer.view_params.pitch_rad = np.clip(self.renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
-		
-		self.anchor_xy = new_anchor_xy
-		self.refresh_canvas()
+		need_refresh = self.selected_m1_tool.on_drag(event, self)
+		if need_refresh:
+			self.refresh_canvas()
 		
 	def _on_canvas_release_m1(self, event):
-		self.anchor_xy = None
+		self.selected_m1_tool.on_release(event)
 	
 	
 	def _on_canvas_reconfig(self,event):
