@@ -330,7 +330,11 @@ class Renderer:
 		dir_far[3] = 1
 		
 		raw_coords = matr_view_proj @ dir_far
-		raw_coords /= raw_coords[3]
+		w = raw_coords[3]
+		
+		if w <= 0:
+			return None
+		raw_coords /= w
 		raw_coords[1] *= -1
 		
 		canvas_coords = ((raw_coords[:2] + 1) / 2) * np.array((self.get_width(), self.get_height()))

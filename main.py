@@ -86,9 +86,10 @@ class Scene_Editor(tkinter.Frame):
 			for color, point in zip(colors, vanishing):
 				
 				draw_at = self.renderer.get_vanishing_point_on_canvas(point)
-			
-				draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
-				draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
+				if draw_at is not None:
+				
+					draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
+					draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
 				
 		
 	def add_pano_obj_from_file(self, fname_image):
@@ -135,6 +136,25 @@ class Scene_Editor(tkinter.Frame):
 		
 	def _on_canvas_release_m2(self, event):
 		self.anchor_xy = None
+	
+	def _on_canvas_press_m1(self, event):
+		self.anchor_xy = np.array((event.x, event.y))
+		
+	def _on_canvas_drag_m1(self, event):
+		new_anchor_xy = np.array((event.x, event.y))
+		
+		diff = new_anchor_xy - self.anchor_xy
+		self.renderer.view_params.yaw_rad -= (diff[0] / self.renderer.get_width()) * 2
+		self.renderer.view_params.pitch_rad += (diff[1] / self.renderer.get_height()) * 2
+		
+		self.renderer.view_params.pitch_rad = np.clip(self.renderer.view_params.pitch_rad, -np.pi/2, np.pi/2)
+		
+		self.anchor_xy = new_anchor_xy
+		self.refresh_canvas()
+		
+	def _on_canvas_release_m1(self, event):
+		self.anchor_xy = None
+	
 	
 	def _on_canvas_reconfig(self,event):
 		width = event.width
