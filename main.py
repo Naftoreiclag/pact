@@ -8,6 +8,7 @@ from PIL import Image
 import numpy as np
 import os
 import io_utils
+import draw_utils
 
 class Scene_Editor(tkinter.Frame):
 	def __init__(self, tk_master, opengl_context):
@@ -17,6 +18,12 @@ class Scene_Editor(tkinter.Frame):
 		self.anchor_xy = np.zeros((2, ))
 		self.renderer = render.Renderer(opengl_context)
 		self.setup_interface()
+		
+		self.selected_tool = 'aas'
+		self.selected_axis = 0
+		self.selected_object = None
+		
+		self.show_vanishing_points = True
 		
 	def setup_interface(self):
 		
@@ -59,10 +66,30 @@ class Scene_Editor(tkinter.Frame):
 	def refresh_canvas(self):
 		image = self.renderer.render()
 		
+		self.tk_canvas.delete('all')
+		
 		tk_image = ImageTk.PhotoImage(image)
 		self.tk_canvas.usr_image_ref = tk_image
-		self.tk_canvas.delete('all')
 		self.tk_canvas.create_image(0, 0, image=tk_image, anchor='nw')
+		
+		
+		if self.show_vanishing_points:
+			vanishing = np.array([
+				[1, 0, 0],
+				[-1, 0, 0],
+				[0, 1, 0],
+				[0, -1, 0],
+				[0, 0, 1],
+				[0, 0, -1],
+			])
+			colors = ['red', 'red', 'green', 'green', 'blue', 'blue']
+			for color, point in zip(colors, vanishing):
+				
+				draw_at = self.renderer.get_vanishing_point_on_canvas(point)
+			
+				draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
+				draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
+				
 		
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)

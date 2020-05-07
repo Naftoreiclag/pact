@@ -265,8 +265,7 @@ class Renderer:
 		matr_view = self._compute_view_matr()
 		matr_view_proj = matr_proj @ matr_view
 		return matr_view_proj
-		
-		
+			
 	def resize(self, new_width, new_height):
 		self._init_fbo(new_width, new_height)
 		
@@ -293,7 +292,6 @@ class Renderer:
 		
 		return homo_world_coords
 		
-
 	def render(self):
 		
 		matr_view_proj = self._compute_view_proj_matr()
@@ -320,6 +318,24 @@ class Renderer:
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
 		return image
+
+	def get_vanishing_point_on_canvas(self, direction):
+		
+		matr_view_proj = self._compute_view_proj_matr()
+		
+		large = 10000
+		
+		dir_far = np.zeros(4)
+		dir_far[:3] = direction * large
+		dir_far[3] = 1
+		
+		raw_coords = matr_view_proj @ dir_far
+		raw_coords /= raw_coords[3]
+		raw_coords[1] *= -1
+		
+		canvas_coords = ((raw_coords[:2] + 1) / 2) * np.array((self.get_width(), self.get_height()))
+		return canvas_coords
+		
 
 class Single_Image_Renderer:
 	
