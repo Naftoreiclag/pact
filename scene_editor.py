@@ -230,8 +230,6 @@ class Scene_Editor(tkinter.Frame):
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
-		self.renderer.add_pano_obj(fname_image, matr)
-		
 		return self.renderer.add_pano_obj(fname_image, matr)
 				
 	def add_skybox_from_file(self, fname_image):
