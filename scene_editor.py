@@ -234,7 +234,7 @@ class Scene_Editor(tkinter.Frame):
 		
 		for row_idx, obj in enumerate(self.renderer.pano_objs):
 			frame = tkinter.Frame(self.tk_selection_scrollable)
-			frame.grid(row=row_idx, column=0)
+			frame.grid(row=row_idx, column=0, sticky='w')
 			
 			def create_closure():
 				myobj = obj
