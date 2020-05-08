@@ -128,17 +128,22 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_selection_scrollable_parent_frame.grid(row=100, column=101, sticky='ns')
 		
 		self.tk_selection_scrollable = create_scrollable(self.tk_selection_scrollable_parent_frame)
+		self.refresh_selection_table()
 		
-		button_idx = 0
+	def _select_object_no_refresh(self, pano_obj):
+		if pano_obj not in self.selected_objects:
+			self.selected_objects.append(pano_obj)
+			
+	def _deselect_object_no_refresh(self, pano_obj):
+		if pano_obj in self.selected_objects:
+			self.selected_objects.remove(pano_obj)
 		
-		def add_button():
-			nonlocal button_idx
-			button = tkinter.Button(self.tk_selection_scrollable, text='test', command=add_button)
-			button.grid(row=button_idx, column=0)
-			button_idx += 1
-		add_button()
-		
-		
+	def select_object(self, pano_obj):
+		self._select_object_no_refresh(pano_obj)
+		self.refresh_selection_table()
+	
+	def deselect_object(self, pano_obj):
+		self._deselect_object_no_refresh(pano_obj)
 		self.refresh_selection_table()
 		
 	def _add_quick_buttons(self):
@@ -163,7 +168,6 @@ class Scene_Editor(tkinter.Frame):
 			axis = self.selected_axis
 			matr[axis,axis] = -1
 			obj.apply_world_transform(matr)
-			self.refresh_selection_table()
 		make_quick_button(fun, 'Flip')
 			
 		def fun(obj):
@@ -228,15 +232,26 @@ class Scene_Editor(tkinter.Frame):
 				
 	def refresh_selection_table(self):
 		
-		for i in range(40):
+		for row_idx, obj in enumerate(self.renderer.pano_objs):
 			frame = tkinter.Frame(self.tk_selection_scrollable)
-			frame.grid(row=i, column=0)
+			frame.grid(row=row_idx, column=0)
 			
-			var = tkinter.IntVar()
-			tkinter.Checkbutton(frame, variable=var).grid(row=0, column=0)
+			def create_closure():
+				myobj = obj
+				var = tkinter.BooleanVar(value=True)
+				def cb_cmd():
+					val = var.get()
+					if val:
+						self._select_object_no_refresh(myobj)
+					else:
+						self._deselect_object_no_refresh(myobj)
+				return cb_cmd, var
+			cb_cmd, var = create_closure()
+			
+			tkinter.Checkbutton(frame, variable=var, command=cb_cmd).grid(row=0, column=0)
 			tkinter.Button(frame, text='^').grid(row=0, column=1)
 			tkinter.Button(frame, text='v').grid(row=0, column=2)
-			tkinter.Label(frame, text='test').grid(row=0, column=3)
+			tkinter.Label(frame, text=obj.source_fname).grid(row=0, column=3)
 				
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
@@ -245,9 +260,14 @@ class Scene_Editor(tkinter.Frame):
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
+		self.refresh_selection_table()
+		
 		return self.renderer.add_pano_obj(fname_image, matr)
 				
 	def add_skybox_from_file(self, fname_image):
+		
+		self.refresh_selection_table()
+		
 		return self.renderer.add_skybox(fname_image)
 		
 	def save_to_file(self, fname):
