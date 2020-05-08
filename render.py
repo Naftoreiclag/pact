@@ -7,11 +7,56 @@ from PIL import Image
 import random
 import io_utils
 
+class Texture_Loader:
+	
+	def __init__(self, moderngl_context):
+		self.ctx = moderngl_context
+		
+		self.loaded_textures = {}
+		
+	def load_texture(self, fname):
+		if fname in self.loaded_textures:
+			return self.loaded_textures[fname]
+		else:
+			image = Image.open(fname)
+			texture = pil_image_to_texture(self.ctx, image)
+			texture.anisotropy = 16.0
+			texture.build_mipmaps()
+			
+			self.loaded_textures[fname] = texture
+			
+			return texture
+	
+	def load_texture_cube(self, fname):
+		if fname in self.loaded_textures:
+			return self.loaded_textures[fname]
+		else:
+			face_fnames = [
+				fname + 'posx.jpg',
+				fname + 'negx.jpg',
+				fname + 'posy.jpg',
+				fname + 'negy.jpg',
+				fname + 'posz.jpg',
+				fname + 'negz.jpg',
+			]
+			
+			face_images = [Image.open(x) for x in face_fnames]
+			face_bytes = [x.tobytes() for x in face_images]
+			
+			
+			texture = self.ctx.texture_cube(face_images[0].size, 3, b''.join(face_bytes))
+			
+			self.loaded_textures[fname] = texture
+			
+			return texture
+		
+
 class PanoObj:
 	
-	def __init__(self, texture, model_matr, is_skybox):
+	def __init__(self, texture, model_matr, is_skybox, source_fname):
 		self.texture = texture
 		self.model_matr = model_matr
+		self.source_fname = source_fname
 		self.is_skybox = is_skybox
 		
 	def renormalize_model_matrix(self):
@@ -65,6 +110,8 @@ class Renderer:
 	
 	def __init__(self, opengl_context):
 		self.ctx = opengl_context
+		
+		self.texture_loader = Texture_Loader(self.ctx)
 		
 		self._init_pano_obj_shader()
 		self._init_skybox_shader()
@@ -122,25 +169,24 @@ class Renderer:
 			matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
 			self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
 		
-	def add_pano_obj(self, image, model_matr=None):
-		texture = pil_image_to_texture(self.ctx, image)
-		texture.anisotropy = 16.0
-		texture.build_mipmaps()
+	def add_pano_obj(self, fname_image, model_matr=None):
+		
+		texture = self.texture_loader.load_texture(fname_image)
+		
 		if model_matr is None:
 			model_matr = np.eye(4)
-		pano_obj = PanoObj(texture, model_matr, False)
+		pano_obj = PanoObj(texture, model_matr, False, fname_image)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
 		
-	def add_skybox(self, images, model_matr=None):
-		faces = [image.tobytes() for image in images]
+	def add_skybox(self, folder_skybox, model_matr=None):
 		
+		texture = self.texture_loader.load_texture_cube(folder_skybox)
 		
-		texture = self.ctx.texture_cube(images[0].size, 3, b''.join(faces))
 		if model_matr is None:
 			model_matr = np.eye(4)
-		pano_obj = PanoObj(texture, model_matr, True)
+		pano_obj = PanoObj(texture, model_matr, True, folder_skybox)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj

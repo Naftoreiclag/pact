@@ -203,43 +203,15 @@ class Scene_Editor(tkinter.Frame):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
 		fname_transform = fname_leafless + '.json'
 		
-		image = Image.open(fname_image)
-		
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
-		return self.renderer.add_pano_obj(image, matr)
+		self.renderer.add_pano_obj(fname_image, matr)
 		
-		if False:
-			flip_x = np.eye(4)
-			flip_x[0,0] = -1
-			flip_z = np.eye(4)
-			flip_z[2,2] = -1
-			
-			rotate90 = np.eye(4)
-			rotate90[0,0] = 0
-			rotate90[2,0] = 1
-			rotate90[0,2] = -1
-			rotate90[2,2] = 0
-			
-			
-			for asdf in [np.eye(4)]:
-				self.renderer.add_pano_obj(image, asdf @ matr)
-				self.renderer.add_pano_obj(image, asdf @ flip_x @ matr)
-				self.renderer.add_pano_obj(image, asdf @ flip_z @ matr)
-				self.renderer.add_pano_obj(image, asdf @ flip_z @ flip_x @ matr)
+		return self.renderer.add_pano_obj(fname_image, matr)
 				
 	def add_skybox_from_file(self, fname_image):
-		skybox_textures = [
-			Image.open('ignore/Bridge2/posx.jpg'),
-			Image.open('ignore/Bridge2/negx.jpg'),
-			Image.open('ignore/Bridge2/posy.jpg'),
-			Image.open('ignore/Bridge2/negy.jpg'),
-			Image.open('ignore/Bridge2/posz.jpg'),
-			Image.open('ignore/Bridge2/negz.jpg'),
-		]
-		
-		return self.renderer.add_skybox(skybox_textures)
+		return self.renderer.add_skybox(fname_image)
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()
