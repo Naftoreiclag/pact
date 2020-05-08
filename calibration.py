@@ -309,8 +309,13 @@ class Calibration_Editor:
 		num_points = sum(1 for x in self.intersection_points if x is not None)
 		
 		if num_points == 3:
-			self.centroid_preview, _ = compute_centroid(self.intersection_points)
-		elif num_points == 2:
+			self.centroid_preview, cam_dist = compute_centroid(self.intersection_points)
+			if cam_dist is None:
+				smallest_idx = np.argmin(singular_values)
+				self.intersection_points[smallest_idx] = None
+				num_points -= 1
+		
+		if num_points == 2:
 			self.centroid_preview, _ = compute_fov_minimizing_point(self.intersection_points, self.image_dimensions[0], self.image_dimensions[1])
 		else:
 			self.centroid_preview = None
@@ -497,7 +502,71 @@ def solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish
 	downscale_matr[2, 2] = 1/cam_dist
 	
 	return undo_image_rotation @ downscale_matr @ image_plane_matr
+
+def solve_perspective_1_vanish(vanishing_points, image_width, image_height, control_lines):
+	assert(sum(1 for x in vanishing_points if x is not None) == 1)
+	arbitrary_vanish = [x for x in vanishing_points if x is not None][0]
+	
+	centroid = arbitrary_vanish
+	cam_dist = max(image_width, image_height)
+	camera_loc = np.zeros(3)
+	camera_loc[:2] = centroid
+	camera_loc[2] = cam_dist
+	
+	to_x_vanish = np.zeros(4,)
+	to_y_vanish = np.zeros(4,)
+	to_z_vanish = np.zeros(4,)
+	
+	if vanishing_points[0] is not None:
+		to_x_vanish[2] = 1
+	if vanishing_points[1] is not None:
+		to_y_vanish[2] = 1
+	if vanishing_points[2] is not None:
+		to_z_vanish[2] = 1
 		
+	def average_direction(channel):
+		disps = []
+		for cl in control_lines:
+			if cl.channel == channel:
+				disp = cl.start_pos - cl.end_pos
+				disp /= np.linalg.norm(disp)
+				
+				if disp[0] < 0:
+					disp = -disp
+					
+				disps.append(disp)
+		
+		avg_dir = np.sum(disps)
+		avg_dir /= np.linalg.norm(avg_dir)
+		
+		
+	force_set = None
+	if vanishing_points[0] is None:
+		to_x_vanish[0] = 1
+		force_set = 'x'
+	elif vanishing_points[1] is None:
+		to_z_vanish[0] = 1
+		force_set = 'z'
+	else:
+		assert(False)
+	
+	if vanishing_points[0] is None and force_set != 'x':
+		to_x_vanish[:3] = np.cross(to_y_vanish[:3], to_z_vanish[:3])
+	if vanishing_points[1] is None:
+		to_y_vanish[:3] = np.cross(to_x_vanish[:3], to_z_vanish[:3])
+	if vanishing_points[2] is None and force_set != 'z':
+		to_z_vanish[:3] = np.cross(to_x_vanish[:3], to_y_vanish[:3])
+		
+	heuristic_matr = np.eye(4)
+	
+	# Have the y vanishing point go upwards
+	if vanishing_points[1] is None and to_y_vanish[1] < 0:
+		heuristic_matr[1,1] = -1
+	
+	return camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish
+	
+	
+
 def solve_perspective_2_vanish(vanishing_points, image_width, image_height):
 	
 	centroid, cam_dist = compute_fov_minimizing_point(vanishing_points, image_width, image_height)
@@ -524,11 +593,16 @@ def solve_perspective_2_vanish(vanishing_points, image_width, image_height):
 	if vanishing_points[0] is None:
 		to_x_vanish[:3] = np.cross(to_y_vanish[:3], to_z_vanish[:3])
 	if vanishing_points[1] is None:
-		to_y_vanish[:3] = np.cross(to_z_vanish[:3], to_x_vanish[:3])
+		to_y_vanish[:3] = np.cross(to_x_vanish[:3], to_z_vanish[:3])
 	if vanishing_points[2] is None:
 		to_z_vanish[:3] = np.cross(to_x_vanish[:3], to_y_vanish[:3])
 		
 	heuristic_matr = np.eye(4)
+	
+	# Have the y vanishing point go upwards
+	if vanishing_points[1] is None and to_y_vanish[1] < 0:
+		heuristic_matr[1,1] = -1
+	
 	return camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish
 		
 def solve_perspective_3_vanish(vanishing_points):
@@ -576,7 +650,7 @@ def solve_perspective(control_lines, image_width, image_height):
 		if sing < SINGULAR_VALUE_EPS:
 			vanishing_points[i] = None
 	
-	# Heuristic: check how parallel the lines are
+	# Find number of non-null vanishing points
 	num_points = sum(1 for x in vanishing_points if x is not None)
 	
 	# Compute centroid, and check if the camera distance is imaginary (impossible camera settings)
@@ -592,7 +666,8 @@ def solve_perspective(control_lines, image_width, image_height):
 	if num_points == 0:
 		raise RuntimeError('Requires at least 1 vanishing point')
 	elif num_points == 1:
-		raise RuntimeError('One-point perspective not implemented')
+		camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish = solve_perspective_1_vanish(vanishing_points, image_width, image_height, control_lines)
+		print('Computing perspective using 1-point')
 	elif num_points == 2:
 		camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish = solve_perspective_2_vanish(vanishing_points, image_width, image_height)
 		print('Computing perspective using 2-point')
