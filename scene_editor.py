@@ -107,10 +107,8 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
 		
 		self.tk_menubar_layer = tkinter.Menu(self.tk_menubar)
-		self.tk_menubar_layer.add_command(label='Add', command=self._on_user_erase_selected)
-		self.tk_menubar.add_cascade(label='Edit', menu=self.tk_menubar_layer)
-		
-		self.tk_menubar_layer = tkinter.Menu(self.tk_menubar)
+		self.tk_menubar_layer.add_command(label='Add from file', command=self._on_user_add_from_file)
+		self.tk_menubar_layer.add_separator()
 		self.tk_menubar_layer.add_command(label='Erase selected', command=self._on_user_erase_selected)
 		self.tk_menubar.add_cascade(label='Layer', menu=self.tk_menubar_layer)
 		
@@ -201,6 +199,14 @@ class Scene_Editor(tkinter.Frame):
 		fname = tkinter.filedialog.askopenfilename(filetypes=(('JSON scenes', '*.json'),))
 		print('fname = {}'.format(fname))
 		self.load_from_file(fname)
+		
+	def _on_user_add_from_file(self):
+		print('User requested add object from file')
+		fname = tkinter.filedialog.askopenfilename(filetypes=(('Images', '*.*'),))
+		print('fname = {}'.format(fname))
+		self.add_pano_obj_from_file(fname)
+		self.refresh_canvas()
+		self.refresh_selection_table()
 		
 	def _on_user_save_as(self):
 		print('User requested save as')
@@ -352,6 +358,7 @@ class Scene_Editor(tkinter.Frame):
 		obj_list = json_data['objs']
 		
 		for obj_json in obj_list:
+			custom_name = obj_json['name']
 			is_skybox = obj_json['skybox']
 			source_fname = obj_json['src']
 			matr = io_utils.load_matrix_from_json(obj_json['matr'])
