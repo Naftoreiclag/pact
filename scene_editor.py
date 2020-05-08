@@ -349,6 +349,7 @@ class Scene_Editor(tkinter.Frame):
 			obj_json['name'] = obj.custom_name
 			obj_json['src'] = obj.source_fname
 			obj_json['matr'] = io_utils.save_matrix_to_json(obj.model_matr)
+			obj_json['matr_rot'] = io_utils.save_matrix_to_json(obj.model_matr_rotation)
 			obj_json['skybox'] = obj.is_skybox
 			obj_list.append(obj_json)
 			
@@ -358,6 +359,7 @@ class Scene_Editor(tkinter.Frame):
 		json_data = io_utils.json_load(fname)
 		self.load_from_json(json_data)
 		self.current_scene_fname = fname
+		self.selected_objects.clear()
 		print('Load scene from: {}'.format(fname))
 		
 	def load_from_json(self, json_data):
@@ -370,10 +372,11 @@ class Scene_Editor(tkinter.Frame):
 			is_skybox = obj_json['skybox']
 			source_fname = obj_json['src']
 			matr = io_utils.load_matrix_from_json(obj_json['matr'])
+			matr_rot = io_utils.load_matrix_from_json(obj_json['matr_rot'])
 			if is_skybox:
-				self.renderer.add_skybox(source_fname, matr, custom_name)
+				self.renderer.add_skybox(source_fname, matr, matr_rot, custom_name)
 			else:
-				self.renderer.add_pano_obj(source_fname, matr, custom_name)
+				self.renderer.add_pano_obj(source_fname, matr, matr_rot, custom_name)
 		self.refresh_canvas()
 	
 	def _on_canvas_press_m2(self, event):
