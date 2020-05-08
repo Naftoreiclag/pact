@@ -76,9 +76,10 @@ class PanoObj:
 		self.renormalize_model_matrix()
 
 class View_Params:
-	def __init__(self, pitch_rad=0, yaw_rad=0):
+	def __init__(self, pitch_rad=0, yaw_rad=0, fov=90):
 		self.pitch_rad = pitch_rad
 		self.yaw_rad = yaw_rad
+		self.fov = fov
 		
 	def compute_view_matr(self):
 		matr_view = pyrr.matrix44.create_look_at((0, 0, 0), pitch_yaw_to_direction(self.pitch_rad, self.yaw_rad), (0, 1, 0)).T
@@ -281,7 +282,7 @@ class Renderer:
 		return self.view_params.compute_view_matr()
 		
 	def _compute_proj_matr(self):
-		return pyrr.matrix44.create_perspective_projection_matrix(90.0, self.get_width() / self.get_height(), 0.1, 100.0).T
+		return pyrr.matrix44.create_perspective_projection_matrix(self.view_params.fov, self.get_width() / self.get_height(), 0.1, 100.0).T
 		
 	def _compute_view_proj_matr(self):
 		matr_proj = self._compute_proj_matr()

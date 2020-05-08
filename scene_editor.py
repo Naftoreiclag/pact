@@ -122,6 +122,7 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
 		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
 		self.tk_canvas.bind('<Key>', self._on_canvas_key)
+		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
 		
 		tk_master.columnconfigure(100, weight=1)
 		tk_master.rowconfigure(100, weight=1)
@@ -415,6 +416,11 @@ class Scene_Editor(tkinter.Frame):
 		
 		self.renderer.resize(width, height)
 		
+		self.refresh_canvas()
+
+	def _on_canvas_mousewheel(self, event):
+		self.renderer.view_params.fov += event.delta
+		self.renderer.view_params.fov = np.clip(self.renderer.view_params.fov, 10, 160)
 		self.refresh_canvas()
 
 def create_scrollable(master):
