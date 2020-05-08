@@ -105,6 +105,46 @@ def compute_centroid(tri_points):
 	
 	return intersection, dual_dist
 	
+def compute_fov_minimizing_point(vanishing_points, image_width, image_height):
+	arb_vanish_points = [x for x in vanishing_points if x is not None]
+	assert(len(arb_vanish_points) == 2)
+	
+	# perform a single parameter search to find the camera point that
+	# minimizes the FOV
+	
+	arb_vanish_points_dist = np.linalg.norm(arb_vanish_points[0] - arb_vanish_points[1])
+	
+	corners = np.array([
+		[0, 0],
+		[image_width, 0],
+		[0, image_height],
+		[image_width, image_height],
+	])
+	
+	def fov_cost(camera_loc):
+		ratios = np.zeros(4)
+		for i, corner in enumerate(corners):
+			dist_t = np.linalg.norm(corner - camera_loc[:2])
+			dist_d = camera_loc[2]
+			ratios[i] = dist_t / dist_d
+		return np.max(ratios)
+	
+	def proposed_cam_loc(theta):
+		# theta should be between 0 and 1
+		proposed_centroid = arb_vanish_points[0] * theta + arb_vanish_points[1] * (1-theta)
+		cam_dist = np.sqrt(0.25 - (theta - 0.5)**2)*arb_vanish_points_dist
+		cam_loc = np.array([proposed_centroid[0], proposed_centroid[1], cam_dist])
+		return cam_loc
+	
+	def convex_cost_fun(theta):
+		# theta should be between 0 and 1
+		return fov_cost(proposed_cam_loc(theta))
+		
+	best_theta = convex_opt.convex_1d_opt(convex_cost_fun, 0, 1)
+	
+	camera_loc = proposed_cam_loc(best_theta)
+	return camera_loc[:2], camera_loc[2]
+	
 class Calibration_Editor:
 	
 	def __init__(self, tk_master, opengl_context, image_fname, save_data=None):
@@ -245,8 +285,13 @@ class Calibration_Editor:
 		if self.centroid_preview is not None:
 			
 			draw_at = image_draw_point + (self.centroid_preview * self.scale_factor)
-			draw_utils.draw_disk(self.tk_canvas, draw_at, 4, fill='black')
-			draw_utils.draw_disk(self.tk_canvas, draw_at, 3, fill='white')
+			
+			for fill, width, cs_size in [('black', 5, 21), ('white', 3, 20)]:
+				draw_utils.draw_line_segment(self.tk_canvas, draw_at - np.array([cs_size, 0]), draw_at + np.array([cs_size, 0]), fill=fill, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, draw_at - np.array([0, cs_size]), draw_at + np.array([0, cs_size]), fill=fill, width=width)
+			
+			#draw_utils.draw_disk(self.tk_canvas, draw_at, 4, fill='black')
+			#draw_utils.draw_disk(self.tk_canvas, draw_at, 3, fill='white')
 			
 	
 	def _on_canvas_press_m2(self, event):
@@ -261,8 +306,12 @@ class Calibration_Editor:
 			if s < SINGULAR_VALUE_EPS:
 				self.intersection_points[i] = None
 		
-		if not any(x is None for x in self.intersection_points):
+		num_points = sum(1 for x in self.intersection_points if x is not None)
+		
+		if num_points == 3:
 			self.centroid_preview, _ = compute_centroid(self.intersection_points)
+		elif num_points == 2:
+			self.centroid_preview, _ = compute_fov_minimizing_point(self.intersection_points, self.image_dimensions[0], self.image_dimensions[1])
 		else:
 			self.centroid_preview = None
 		
@@ -449,10 +498,42 @@ def solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish
 	
 	return undo_image_rotation @ downscale_matr @ image_plane_matr
 		
-def solve_perspective_2_vanish(vanishing_points):
-	pass
+def solve_perspective_2_vanish(vanishing_points, image_width, image_height):
+	
+	centroid, cam_dist = compute_fov_minimizing_point(vanishing_points, image_width, image_height)
+	camera_loc = np.zeros(3)
+	camera_loc[:2] = centroid
+	camera_loc[2] = cam_dist
+
+	to_x_vanish = np.zeros(4,)
+	to_y_vanish = np.zeros(4,)
+	to_z_vanish = np.zeros(4,)
+	if vanishing_points[0] is not None:
+		to_x_vanish[:2] = -(vanishing_points[0] - centroid)
+		to_x_vanish[2] = cam_dist
+		to_x_vanish /= np.linalg.norm(to_x_vanish)
+	if vanishing_points[1] is not None:
+		to_y_vanish[:2] = -(vanishing_points[1] - centroid)
+		to_y_vanish[2] = cam_dist
+		to_y_vanish /= np.linalg.norm(to_y_vanish)
+	if vanishing_points[2] is not None:
+		to_z_vanish[:2] = -(vanishing_points[2] - centroid)
+		to_z_vanish[2] = cam_dist
+		to_z_vanish /= np.linalg.norm(to_z_vanish)
+		
+	if vanishing_points[0] is None:
+		to_x_vanish[:3] = np.cross(to_y_vanish[:3], to_z_vanish[:3])
+	if vanishing_points[1] is None:
+		to_y_vanish[:3] = np.cross(to_z_vanish[:3], to_x_vanish[:3])
+	if vanishing_points[2] is None:
+		to_z_vanish[:3] = np.cross(to_x_vanish[:3], to_y_vanish[:3])
+		
+	heuristic_matr = np.eye(4)
+	return camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish
 		
 def solve_perspective_3_vanish(vanishing_points):
+	num_points = sum(1 for x in vanishing_points if x is not None)
+	assert(num_points == 3)
 	centroid, cam_dist = compute_centroid(vanishing_points)
 	
 	to_x_vanish = np.zeros(4,)
@@ -507,65 +588,20 @@ def solve_perspective(control_lines, image_width, image_height):
 			smallest_idx = np.argmin(singular_values)
 			vanishing_points[smallest_idx] = None
 			num_points -= 1
-			
-	
-	
-	if num_points == 2:
-		
-		arb_vanish_points = [x for x in vanishing_points if x is not None]
-		assert(len(arb_vanish_points) == 2)
-		
-		# perform a single parameter search to find the camera point that
-		# minimizes the FOV
-		
-		arb_vanish_points_dist = np.linalg.norm(arb_vanish_points[0] - arb_vanish_points[1])
-		
-		corners = np.array([
-			[0, 0],
-			[image_width, 0],
-			[0, image_height],
-			[image_width, image_height],
-		])
-		
-		def fov_cost(camera_loc):
-			ratios = np.zeros(4)
-			for i, corner in enuermate(corners):
-				dist_t = np.linalg.norm(corner - camera_loc[:2])
-				dist_d = camera_loc[2]
-				ratios[i] = dist_t / dist_d
-			return np.max(ratios)
-		
-		def proposed_cam_loc(theta):
-			# theta should be between 0 and 1
-			proposed_centroid = arb_vanish_points[0] * theta + arb_vanish_points[1] * (1-theta)
-			cam_dist = np.sqrt(0.25 - (x - 0.5)**2)*arb_vanish_points_dist
-			cam_loc = np.array([proposed_centroid[0], proposed_centroid[1], cam_dist])
-			return cam_loc
-		
-		def convex_cost_fun(theta):
-			# theta should be between 0 and 1
-			return fov_cost(proposed_cam_loc(theta))
-			
-		best_theta = convex_opt.convex_1d_opt(convex_cost_fun, 0, 1)
-		
-		cam_loc = proposed_cam_loc(best_theta)
-		
-		centroid = cam_loc[:2]
-		cam_dist = cam_loc[2]
-		
 	
 	if num_points == 0:
 		raise RuntimeError('Requires at least 1 vanishing point')
 	elif num_points == 1:
 		raise RuntimeError('One-point perspective not implemented')
 	elif num_points == 2:
-		raise RuntimeError('Two-point perspective not implemented')
+		camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish = solve_perspective_2_vanish(vanishing_points, image_width, image_height)
+		print('Computing perspective using 2-point')
 	elif num_points == 3:
-		
 		camera_loc, heuristic_matr, to_x_vanish, to_y_vanish, to_z_vanish = solve_perspective_3_vanish(vanishing_points)
-		
-		magic_matrix = solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish, to_z_vanish)
-		
-		return heuristic_matr @ magic_matrix
+		print('Computing perspective using 3-point')
 	else:
 		assert(False)
+		
+	magic_matrix = solve_matrix(camera_loc, image_width, image_height, to_x_vanish, to_y_vanish, to_z_vanish)
+	
+	return heuristic_matr @ magic_matrix
