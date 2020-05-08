@@ -233,38 +233,51 @@ class Scene_Editor(tkinter.Frame):
 	def refresh_selection_table(self):
 		
 		for child in self.tk_selection_scrollable.winfo_children():
-			child.destroy()
+			if child.pano_obj not in self.renderer.pano_objs:
+				child.destroy()
+			
 		for row_idx, obj in enumerate(self.renderer.pano_objs[::-1]):
-			frame = tkinter.Frame(self.tk_selection_scrollable)
+			
+			try:
+				frame = getattr(obj, 'tk_frame')
+			except AttributeError:
+				frame = tkinter.Frame(self.tk_selection_scrollable)
+				self._populate_frame_for_obj_selection(frame, obj)
 			frame.grid(row=row_idx, column=0, sticky='w')
 			
-			def create_cbclosure():
-				myobj = obj
-				var = tkinter.BooleanVar(value=True)
-				def cb_cmd():
-					val = var.get()
-					if val:
-						self._select_object_no_refresh(myobj)
-					else:
-						self._deselect_object_no_refresh(myobj)
-				tkinter.Checkbutton(frame, variable=var, command=cb_cmd).grid(row=0, column=0)
-			create_cbclosure()
-			
-			def create_move_up_closure(delta, label, col):
-				myobj = obj
-				def button_cmd():
-					lst = self.renderer.pano_objs
-					myidx = lst.index(myobj)
-					
-					new_idx = myidx + delta
-					if new_idx >= 0 and new_idx < len(self.renderer.pano_objs):
-						lst[new_idx], lst[myidx] = lst[myidx], lst[new_idx]
-					self.refresh_selection_table()
-					self.refresh_canvas()
-				tkinter.Button(frame, text=label, command=button_cmd).grid(row=0, column=col)
-			create_move_up_closure(1, '^', 1)
-			create_move_up_closure(-1, 'v', 2)
-			tkinter.Label(frame, text=obj.custom_name).grid(row=0, column=3)
+				
+	def _populate_frame_for_obj_selection(self, frame, obj):
+		def create_cbclosure():
+			myobj = obj
+			var = tkinter.BooleanVar(value=True)
+			def cb_cmd():
+				val = var.get()
+				if val:
+					self._select_object_no_refresh(myobj)
+				else:
+					self._deselect_object_no_refresh(myobj)
+			tkinter.Checkbutton(frame, variable=var, command=cb_cmd).grid(row=0, column=0)
+		create_cbclosure()
+		
+		def create_move_up_closure(delta, label, col):
+			myobj = obj
+			def button_cmd():
+				lst = self.renderer.pano_objs
+				myidx = lst.index(myobj)
+				
+				new_idx = myidx + delta
+				if new_idx >= 0 and new_idx < len(self.renderer.pano_objs):
+					lst[new_idx], lst[myidx] = lst[myidx], lst[new_idx]
+				self.refresh_selection_table()
+				self.refresh_canvas()
+			tkinter.Button(frame, text=label, command=button_cmd).grid(row=0, column=col)
+		create_move_up_closure(1, '^', 1)
+		create_move_up_closure(-1, 'v', 2)
+		tkinter.Label(frame, text=obj.custom_name).grid(row=0, column=3)
+		
+		frame.pano_obj = obj
+		obj.tk_frame = frame
+		
 				
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
