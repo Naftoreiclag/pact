@@ -43,12 +43,14 @@ class Texture_Loader:
 			face_images = [Image.open(x) for x in face_fnames]
 			face_bytes = [x.tobytes() for x in face_images]
 			
-			
 			texture = self.ctx.texture_cube(face_images[0].size, 3, b''.join(face_bytes))
 			
 			self.loaded_textures[fname] = texture
 			
 			return texture
+	
+	def clear_all(self):
+		self.loaded_textures.clear()
 		
 
 class PanoObj:
@@ -125,50 +127,6 @@ class Renderer:
 		
 		self.view_params = View_Params()
 		
-		# TODO flip z axis afterwards
-		
-		if True:
-			if False:
-				if True:
-					matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-					skybox_textures = [
-						Image.open('ignore/Bridge2/posx.jpg'),
-						Image.open('ignore/Bridge2/negx.jpg'),
-						Image.open('ignore/Bridge2/posy.jpg'),
-						Image.open('ignore/Bridge2/negy.jpg'),
-						Image.open('ignore/Bridge2/posz.jpg'),
-						Image.open('ignore/Bridge2/negz.jpg'),
-					]
-					
-					self.add_skybox(skybox_textures, matr)
-					
-						
-					matr = model_matr_from_orientation([-1, -2, -1], [2, 0, 0], [0, 0, 2])
-					#self.add_pano_obj(Image.open('test_texture.png'), matr)
-				else:
-					
-					matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-					checks = Image.open('checkerboard.png')
-					skybox_textures = [checks] * 6
-					
-					self.add_skybox(skybox_textures, matr)
-			
-		else:
-			matr = model_matr_from_orientation([-1, 1, 1], [2, 0, 0], [0, 0, -2])
-			self.add_pano_obj(Image.open('ignore/posy.jpg'), matr)
-			matr = model_matr_from_orientation([-1, -1, -1], [2, 0, 0], [0, 0, 2])
-			self.add_pano_obj(Image.open('ignore/negy.jpg'), matr)
-			
-			
-			matr = model_matr_from_orientation([-1, 1, -1], [2, 0, 0], [0, -2, 0])
-			self.add_pano_obj(Image.open('ignore/posz.jpg'), matr)
-			matr = model_matr_from_orientation([1, 1, -1], [0, 0, 2], [0, -2, 0])
-			self.add_pano_obj(Image.open('ignore/posx.jpg'), matr)
-			matr = model_matr_from_orientation([1, 1, 1], [-2, 0, 0], [0, -2, 0])
-			self.add_pano_obj(Image.open('ignore/negz.jpg'), matr)
-			matr = model_matr_from_orientation([-1, 1, 1], [0, 0, -2], [0, -2, 0])
-			self.add_pano_obj(Image.open('ignore/negx.jpg'), matr)
-		
 	def add_pano_obj(self, fname_image, model_matr=None):
 		
 		texture = self.texture_loader.load_texture(fname_image)
@@ -214,6 +172,10 @@ class Renderer:
 		
 		self.view_params.pitch_rad = -anchor_pitch - canvas_pitch
 		self.view_params.yaw_rad = -anchor_yaw - canvas_yaw
+		
+	def clear_all(self):
+		self.pano_objs.clear()
+		self.texture_loader.clear_all()
 		
 	def _init_fbo(self, width, height):
 		self.fbo = self.ctx.simple_framebuffer((width, height))

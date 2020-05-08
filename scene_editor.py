@@ -1,4 +1,5 @@
 import tkinter
+import tkinter.filedialog
 from PIL import ImageTk
 import render
 import time
@@ -80,6 +81,8 @@ class Scene_Editor(tkinter.Frame):
 		self.renderer = render.Renderer(opengl_context)
 		self.setup_interface()
 		
+		self.current_scene_fname = None
+		
 		self.selected_m1_tool = Axis_Aligned_Scaling_Tool()
 		self.selected_m2_tool = Camera_Pan_Tool()
 		
@@ -96,6 +99,10 @@ class Scene_Editor(tkinter.Frame):
 		tk_master.config(menu=self.tk_menubar)
 		
 		self.tk_menubar_file = tkinter.Menu(self.tk_menubar)
+		self.tk_menubar_file.add_command(label='Open', command=self._on_user_open)
+		self.tk_menubar_file.add_command(label='Save', command=self._on_user_save)
+		self.tk_menubar_file.add_command(label='Save as...', command=self._on_user_save_as)
+		self.tk_menubar_file.add_separator()
 		self.tk_menubar_file.add_command(label='Exit', command=self._on_user_request_exit)
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
 		
@@ -165,7 +172,25 @@ class Scene_Editor(tkinter.Frame):
 			matr[axis_b,axis_b] = 0
 			obj.apply_world_transform(matr)
 		make_quick_button(fun, 'Rot 90')
+	
+	def _on_user_save(self):
+		print('User requested save')
+		if self.current_scene_fname is None:
+			self._on_user_save_as()
+		else:
+			self.save_to_file(self.current_scene_fname)
 		
+	def _on_user_open(self):
+		print('User requested open')
+		fname = tkinter.filedialog.askopenfilename(filetypes=(('JSON scenes', '*.json'),))
+		print('fname = {}'.format(fname))
+		self.load_from_file(fname)
+		
+	def _on_user_save_as(self):
+		print('User requested save as')
+		fname = tkinter.filedialog.asksaveasfilename(filetypes=(('JSON scenes', '*.json'),))
+		print('fname = {}'.format(fname))
+		self.save_to_file(fname)
 	
 	def _on_user_request_exit(self):
 		print('User requested exit')
@@ -198,7 +223,6 @@ class Scene_Editor(tkinter.Frame):
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
 				
-		
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
 		fname_transform = fname_leafless + '.json'
@@ -212,6 +236,47 @@ class Scene_Editor(tkinter.Frame):
 				
 	def add_skybox_from_file(self, fname_image):
 		return self.renderer.add_skybox(fname_image)
+		
+	def save_to_file(self, fname):
+		json_data = self.save_to_json()
+		io_utils.json_save(json_data, fname)
+		print('Save scene to: {}'.format(fname))
+		
+	def save_to_json(self):
+		json_data = {}
+		
+		obj_list = []
+		json_data['objs'] = obj_list
+		
+		for obj in self.renderer.pano_objs:
+			obj_json = {}
+			obj_json['src'] = obj.source_fname
+			obj_json['matr'] = io_utils.save_matrix_to_json(obj.model_matr)
+			obj_json['skybox'] = obj.is_skybox
+			obj_list.append(obj_json)
+			
+		return json_data
+		
+	def load_from_file(self, fname):
+		json_data = io_utils.json_load(fname)
+		self.load_from_json(json_data)
+		self.current_scene_fname = fname
+		print('Load scene from: {}'.format(fname))
+		
+	def load_from_json(self, json_data):
+		self.renderer.clear_all()
+		
+		obj_list = json_data['objs']
+		
+		for obj_json in obj_list:
+			is_skybox = obj_json['skybox']
+			source_fname = obj_json['src']
+			matr = io_utils.load_matrix_from_json(obj_json['matr'])
+			if is_skybox:
+				self.renderer.add_skybox(source_fname, matr)
+			else:
+				self.renderer.add_pano_obj(source_fname, matr)
+		self.refresh_canvas()
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()
