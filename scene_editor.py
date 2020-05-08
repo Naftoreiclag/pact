@@ -1,5 +1,6 @@
 import tkinter
 import tkinter.filedialog
+import tkinter.messagebox
 from PIL import ImageTk
 import render
 import time
@@ -105,6 +106,14 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar_file.add_command(label='Exit', command=self._on_user_request_exit)
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
 		
+		self.tk_menubar_layer = tkinter.Menu(self.tk_menubar)
+		self.tk_menubar_layer.add_command(label='Add', command=self._on_user_erase_selected)
+		self.tk_menubar.add_cascade(label='Edit', menu=self.tk_menubar_layer)
+		
+		self.tk_menubar_layer = tkinter.Menu(self.tk_menubar)
+		self.tk_menubar_layer.add_command(label='Erase selected', command=self._on_user_erase_selected)
+		self.tk_menubar.add_cascade(label='Layer', menu=self.tk_menubar_layer)
+		
 		self.tk_canvas = tkinter.Canvas(tk_master, width=800, height=800)
 		self.tk_canvas.grid(row=100, column=100, sticky='nsew')
 		self.tk_canvas.bind('<Configure>', self._on_canvas_reconfig)
@@ -202,6 +211,20 @@ class Scene_Editor(tkinter.Frame):
 	def _on_user_request_exit(self):
 		print('User requested exit')
 	
+	def _on_user_erase_selected(self):
+		if len(self.selected_objects) == 0:
+			return
+			
+		user_confirm = tkinter.messagebox.askquestion('Confirm erase', 'Are you sure you want to delete ({}) objects?'.format(len(self.selected_objects)), icon='warning')
+		
+		if user_confirm == 'yes':
+			for obj in self.selected_objects:
+				self.renderer.pano_objs.remove(obj)
+			print('Removed {} objects'.format(len(self.selected_objects)))
+			self.selected_objects.clear()
+			self.refresh_canvas()
+			self.refresh_selection_table()
+		
 	def refresh_canvas(self):
 		image = self.renderer.render()
 		
@@ -249,7 +272,7 @@ class Scene_Editor(tkinter.Frame):
 	def _populate_frame_for_obj_selection(self, frame, obj):
 		def create_cbclosure():
 			myobj = obj
-			var = tkinter.BooleanVar(value=True)
+			var = tkinter.BooleanVar(value=obj in self.selected_objects)
 			def cb_cmd():
 				val = var.get()
 				if val:
