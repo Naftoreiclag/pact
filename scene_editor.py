@@ -113,6 +113,11 @@ class Scene_Editor(tkinter.Frame):
 		tk_master.columnconfigure(100, weight=1)
 		tk_master.rowconfigure(100, weight=1)
 		
+		self.tk_quick_button_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
+		self.tk_quick_button_frame.grid(row=99, column=100, columnspan=2, sticky='ns')
+		
+		self._add_quick_buttons()
+		
 		self.tk_selection_scrollable_parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
 		self.tk_selection_scrollable_parent_frame.grid(row=100, column=101, sticky='ns')
 		
@@ -126,6 +131,41 @@ class Scene_Editor(tkinter.Frame):
 			button.grid(row=button_idx, column=0)
 			button_idx += 1
 		add_button()
+		
+	def _add_quick_buttons(self):
+		frame = self.tk_quick_button_frame
+		
+		button_row = 0
+		button_col = 0
+		
+		def make_quick_button(fun, label):
+			nonlocal button_col
+			def wrapper_fun():
+				if self.selected_object is not None:
+					fun(self.selected_object)
+				self.refresh_canvas()
+			tkinter.Button(frame, text=label, command=wrapper_fun).grid(row=button_row, column=button_col)
+			button_col += 1
+			
+		# Buttons
+			
+		def fun(obj):
+			matr = np.eye(4)
+			axis = self.selected_axis
+			matr[axis,axis] = -1
+			obj.apply_world_transform(matr)
+		make_quick_button(fun, 'Flip')
+			
+		def fun(obj):
+			matr = np.eye(4)
+			axis_a, axis_b = [x for x in range(3) if x != self.selected_axis]
+			matr[axis_a,axis_a] = 0
+			matr[axis_a,axis_b] = -1
+			matr[axis_b,axis_a] = 1
+			matr[axis_b,axis_b] = 0
+			obj.apply_world_transform(matr)
+		make_quick_button(fun, 'Rot 90')
+		
 	
 	def _on_user_request_exit(self):
 		print('User requested exit')

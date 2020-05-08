@@ -18,9 +18,9 @@ def main():
 	fname = 'ignore/data/bathroom.jpg'
 	if True:
 		editor = scene_editor.Scene_Editor(tk_root, ctx)
-		editor.add_skybox_from_file(None)
+		obj2 = editor.add_skybox_from_file(None)
 		obj = editor.add_pano_obj_from_file(fname)
-		editor.selected_object = obj
+		editor.selected_object = obj2
 	else:
 		editor = calibration.Calibration_Editor(tk_root, ctx, fname)
 	

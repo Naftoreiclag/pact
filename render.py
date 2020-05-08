@@ -17,6 +17,10 @@ class PanoObj:
 	def renormalize_model_matrix(self):
 		center_point = self.model_matr @ np.array([0.5, 0.5, 0.0, 1.0])
 		self.model_matr[:3,:4] *= 10 / np.linalg.norm(center_point[:3])
+	
+	def apply_world_transform(self, matr):
+		self.model_matr = matr @ self.model_matr
+		self.renormalize_model_matrix()
 
 class View_Params:
 	def __init__(self, pitch_rad=0, yaw_rad=0):
@@ -307,17 +311,14 @@ class Renderer:
 		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
 		self.ctx.enable(moderngl.BLEND)
 		
-		test = np.eye(4)
-		test[2,2] = self._debug_scalar
-		test_inv = np.linalg.inv(test)
-		
 		for pano_obj in self.pano_objs:
 			if pano_obj.is_skybox:
-				self.skybox_shader_program['unif_unprojection'].write((test_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
+				model_matr_inv = np.linalg.inv(pano_obj.model_matr)
+				self.skybox_shader_program['unif_unprojection'].write((model_matr_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
-				matr_mvp = matr_view_proj @ test @ pano_obj.model_matr
+				matr_mvp = matr_view_proj @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
