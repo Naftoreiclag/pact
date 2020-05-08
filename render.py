@@ -339,12 +339,12 @@ class Renderer:
 		
 		for pano_obj in self.pano_objs:
 			if pano_obj.is_skybox:
-				model_matr_inv = np.linalg.inv(pano_obj.model_matr)
+				model_matr_inv = np.linalg.inv(pano_obj.model_matr) @ pano_obj.model_matr_rotation.T
 				self.skybox_shader_program['unif_unprojection'].write((model_matr_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
-				matr_mvp = matr_view_proj @ pano_obj.model_matr
+				matr_mvp = matr_view_proj @ pano_obj.model_matr_rotation @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				pano_obj.texture.use()
 				self.pano_obj_vao.render(moderngl.TRIANGLES)

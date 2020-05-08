@@ -9,6 +9,7 @@ from PIL import Image
 import numpy as np
 import os
 import io_utils
+import pyrr
 import draw_utils
 
 
@@ -53,18 +54,49 @@ class Axis_Aligned_Scaling_Tool(Editor_Tool):
 		self.prev_xy = np.zeros((2, ))
 		
 	def on_press(self, event, editor):
-		self.prev_xy = np.array((event.x, event.y))
+		self.prev_xy = np.array((event.x, event.y), dtype=np.float32)
 		
 	def on_drag(self, event, editor):
-		new_prev_xy = np.array((event.x, event.y))
+		new_prev_xy = np.array((event.x, event.y), dtype=np.float32)
 		
 		diff = new_prev_xy - self.prev_xy
+		diff[0] /= editor.renderer.get_width()
+		diff[1] /= editor.renderer.get_height()
+		
+		scaling = np.eye(4)
+		axis = editor.selected_axis
+		scaling[axis,axis] = np.exp(diff[0])
+		for obj in editor.selected_objects:
+			obj.apply_world_transform(scaling)
+		
+		self.prev_xy = new_prev_xy
+		editor.refresh_canvas()
+		
+	def on_release(self, event, editor):
+		self.prev_xy = np.zeros((2, ))
+		
+class Axis_Aligned_Rotation_Tool(Editor_Tool):
+	
+	def __init__(self):
+		self.prev_xy = np.zeros((2, ))
+		
+	def on_press(self, event, editor):
+		self.prev_xy = np.array((event.x, event.y), dtype=np.float32)
+		
+	def on_drag(self, event, editor):
+		new_prev_xy = np.array((event.x, event.y), dtype=np.float32)
+		
+		diff = new_prev_xy - self.prev_xy
+		diff[0] /= editor.renderer.get_width()
+		diff[1] /= editor.renderer.get_height()
+		
+		rot_axis = np.zeros(3)
+		rot_axis[editor.selected_axis] = 1
+		rotation = np.eye(4)
+		rotation[:3,:3] = pyrr.matrix33.create_from_axis_rotation(rot_axis, diff[0])
 		
 		for obj in editor.selected_objects:
-			scaling = np.eye(4)
-			axis = editor.selected_axis
-			scaling[axis,axis] = np.exp((diff[0] / editor.renderer.get_width()))
-			obj.apply_world_transform(scaling)
+			obj.apply_world_rotation(rotation)
 		
 		self.prev_xy = new_prev_xy
 		editor.refresh_canvas()
@@ -83,7 +115,7 @@ class Scene_Editor(tkinter.Frame):
 		
 		self.current_scene_fname = None
 		
-		self.selected_m1_tool = Axis_Aligned_Scaling_Tool()
+		self.selected_m1_tool = Axis_Aligned_Rotation_Tool()
 		self.selected_m2_tool = Camera_Pan_Tool()
 		
 		self.selected_axis = 0
@@ -128,9 +160,14 @@ class Scene_Editor(tkinter.Frame):
 		tk_master.rowconfigure(100, weight=1)
 		
 		self.tk_quick_button_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
-		self.tk_quick_button_frame.grid(row=99, column=100, columnspan=2, sticky='ns')
+		self.tk_quick_button_frame.grid(row=99, column=100, columnspan=2, sticky='nw')
 		
 		self._add_quick_buttons()
+		
+		self.tk_tool_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
+		self.tk_tool_frame.grid(row=100, column=99, sticky='nw')
+		
+		self._add_tool_selection_buttons()
 		
 		self.tk_selection_scrollable_parent_frame = tkinter.Frame(tk_master, relief=tkinter.GROOVE, bd=1)
 		self.tk_selection_scrollable_parent_frame.grid(row=100, column=101, sticky='ns')
@@ -154,6 +191,23 @@ class Scene_Editor(tkinter.Frame):
 		self._deselect_object_no_refresh(pano_obj)
 		self.refresh_selection_table()
 		
+	def _add_tool_selection_buttons(self):
+		frame = self.tk_tool_frame
+		
+		button_row = 0
+		button_col = 0
+		
+		def make_tool_button(tool_class, label):
+			nonlocal button_row
+			
+			def wrapper_fun():
+				self.selected_m1_tool = tool_class()
+			tkinter.Button(frame, text=label, command=wrapper_fun).grid(row=button_row, column=button_col)
+			button_row += 1
+			
+		make_tool_button(Axis_Aligned_Scaling_Tool, 'AA-scale')
+		make_tool_button(Axis_Aligned_Rotation_Tool, 'AA-rot')
+	
 	def _add_quick_buttons(self):
 		frame = self.tk_quick_button_frame
 		
