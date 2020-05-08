@@ -51,11 +51,14 @@ class Texture_Loader:
 	
 	def clear_all(self):
 		self.loaded_textures.clear()
-		
 
 class PanoObj:
 	
-	def __init__(self, texture, model_matr, is_skybox, source_fname):
+	def __init__(self, custom_name, texture, model_matr, is_skybox, source_fname):
+		if custom_name is None:
+			custom_name = '{} {}'.format(random.randrange(0,99999), source_fname)
+			
+		self.custom_name = custom_name
 		self.texture = texture
 		self.model_matr = model_matr
 		self.source_fname = source_fname
@@ -127,24 +130,24 @@ class Renderer:
 		
 		self.view_params = View_Params()
 		
-	def add_pano_obj(self, fname_image, model_matr=None):
+	def add_pano_obj(self, fname_image, model_matr=None, custom_name=None):
 		
 		texture = self.texture_loader.load_texture(fname_image)
 		
 		if model_matr is None:
 			model_matr = np.eye(4)
-		pano_obj = PanoObj(texture, model_matr, False, fname_image)
+		pano_obj = PanoObj(custom_name, texture, model_matr, False, fname_image)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
 		
-	def add_skybox(self, folder_skybox, model_matr=None):
+	def add_skybox(self, folder_skybox, model_matr=None, custom_name=None):
 		
 		texture = self.texture_loader.load_texture_cube(folder_skybox)
 		
 		if model_matr is None:
 			model_matr = np.eye(4)
-		pano_obj = PanoObj(texture, model_matr, True, folder_skybox)
+		pano_obj = PanoObj(custom_name, texture, model_matr, True, folder_skybox)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj

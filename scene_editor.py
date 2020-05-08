@@ -232,11 +232,13 @@ class Scene_Editor(tkinter.Frame):
 				
 	def refresh_selection_table(self):
 		
-		for row_idx, obj in enumerate(self.renderer.pano_objs):
+		for child in self.tk_selection_scrollable.winfo_children():
+			child.destroy()
+		for row_idx, obj in enumerate(self.renderer.pano_objs[::-1]):
 			frame = tkinter.Frame(self.tk_selection_scrollable)
 			frame.grid(row=row_idx, column=0, sticky='w')
 			
-			def create_closure():
+			def create_cbclosure():
 				myobj = obj
 				var = tkinter.BooleanVar(value=True)
 				def cb_cmd():
@@ -245,13 +247,24 @@ class Scene_Editor(tkinter.Frame):
 						self._select_object_no_refresh(myobj)
 					else:
 						self._deselect_object_no_refresh(myobj)
-				return cb_cmd, var
-			cb_cmd, var = create_closure()
+				tkinter.Checkbutton(frame, variable=var, command=cb_cmd).grid(row=0, column=0)
+			create_cbclosure()
 			
-			tkinter.Checkbutton(frame, variable=var, command=cb_cmd).grid(row=0, column=0)
-			tkinter.Button(frame, text='^').grid(row=0, column=1)
-			tkinter.Button(frame, text='v').grid(row=0, column=2)
-			tkinter.Label(frame, text=obj.source_fname).grid(row=0, column=3)
+			def create_move_up_closure(delta, label, col):
+				myobj = obj
+				def button_cmd():
+					lst = self.renderer.pano_objs
+					myidx = lst.index(myobj)
+					
+					new_idx = myidx + delta
+					if new_idx >= 0 and new_idx < len(self.renderer.pano_objs):
+						lst[new_idx], lst[myidx] = lst[myidx], lst[new_idx]
+					self.refresh_selection_table()
+					self.refresh_canvas()
+				tkinter.Button(frame, text=label, command=button_cmd).grid(row=0, column=col)
+			create_move_up_closure(1, '^', 1)
+			create_move_up_closure(-1, 'v', 2)
+			tkinter.Label(frame, text=obj.custom_name).grid(row=0, column=3)
 				
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
@@ -283,6 +296,7 @@ class Scene_Editor(tkinter.Frame):
 		
 		for obj in self.renderer.pano_objs:
 			obj_json = {}
+			obj_json['name'] = obj.custom_name
 			obj_json['src'] = obj.source_fname
 			obj_json['matr'] = io_utils.save_matrix_to_json(obj.model_matr)
 			obj_json['skybox'] = obj.is_skybox
@@ -306,9 +320,9 @@ class Scene_Editor(tkinter.Frame):
 			source_fname = obj_json['src']
 			matr = io_utils.load_matrix_from_json(obj_json['matr'])
 			if is_skybox:
-				self.renderer.add_skybox(source_fname, matr)
+				self.renderer.add_skybox(source_fname, matr, custom_name)
 			else:
-				self.renderer.add_pano_obj(source_fname, matr)
+				self.renderer.add_pano_obj(source_fname, matr, custom_name)
 		self.refresh_canvas()
 	
 	def _on_canvas_press_m2(self, event):
