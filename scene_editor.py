@@ -59,12 +59,11 @@ class Axis_Aligned_Scaling_Tool(Editor_Tool):
 		
 		diff = new_prev_xy - self.prev_xy
 		
-		if editor.selected_object is not None:
+		for obj in editor.selected_objects:
 			scaling = np.eye(4)
 			axis = editor.selected_axis
 			scaling[axis,axis] = np.exp((diff[0] / editor.renderer.get_width()))
-			editor.selected_object.model_matr = scaling @ editor.selected_object.model_matr
-			editor.selected_object.renormalize_model_matrix()
+			obj.apply_world_transform(scaling)
 		
 		self.prev_xy = new_prev_xy
 		editor.refresh_canvas()
@@ -87,7 +86,7 @@ class Scene_Editor(tkinter.Frame):
 		self.selected_m2_tool = Camera_Pan_Tool()
 		
 		self.selected_axis = 0
-		self.selected_object = None
+		self.selected_objects = []
 		
 		self.show_vanishing_points = True
 		
@@ -139,6 +138,9 @@ class Scene_Editor(tkinter.Frame):
 			button_idx += 1
 		add_button()
 		
+		
+		self.refresh_selection_table()
+		
 	def _add_quick_buttons(self):
 		frame = self.tk_quick_button_frame
 		
@@ -148,8 +150,8 @@ class Scene_Editor(tkinter.Frame):
 		def make_quick_button(fun, label):
 			nonlocal button_col
 			def wrapper_fun():
-				if self.selected_object is not None:
-					fun(self.selected_object)
+				for obj in self.selected_objects:
+					fun(obj)
 				self.refresh_canvas()
 			tkinter.Button(frame, text=label, command=wrapper_fun).grid(row=button_row, column=button_col)
 			button_col += 1
@@ -161,6 +163,7 @@ class Scene_Editor(tkinter.Frame):
 			axis = self.selected_axis
 			matr[axis,axis] = -1
 			obj.apply_world_transform(matr)
+			self.refresh_selection_table()
 		make_quick_button(fun, 'Flip')
 			
 		def fun(obj):
@@ -222,6 +225,18 @@ class Scene_Editor(tkinter.Frame):
 				
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
+				
+	def refresh_selection_table(self):
+		
+		for i in range(40):
+			frame = tkinter.Frame(self.tk_selection_scrollable)
+			frame.grid(row=i, column=0)
+			
+			var = tkinter.IntVar()
+			tkinter.Checkbutton(frame, variable=var).grid(row=0, column=0)
+			tkinter.Button(frame, text='^').grid(row=0, column=1)
+			tkinter.Button(frame, text='v').grid(row=0, column=2)
+			tkinter.Label(frame, text='test').grid(row=0, column=3)
 				
 	def add_pano_obj_from_file(self, fname_image):
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
