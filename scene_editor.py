@@ -278,7 +278,7 @@ class Scene_Editor(tkinter.Frame):
 	def _populate_frame_for_obj_selection(self, frame, obj):
 		def create_cbclosure():
 			myobj = obj
-			var = tkinter.BooleanVar(value=obj in self.selected_objects)
+			var = tkinter.BooleanVar(value=(obj in self.selected_objects))
 			def cb_cmd():
 				val = var.get()
 				if val:
@@ -309,21 +309,28 @@ class Scene_Editor(tkinter.Frame):
 		
 				
 	def add_pano_obj_from_file(self, fname_image):
+		
+		fname_image = io_utils.try_convert_to_relative_path(fname_image)
+		
 		fname_leafless, fname_leaf = os.path.splitext(fname_image)
 		fname_transform = fname_leafless + '.json'
 		
 		json_data = io_utils.json_load(fname_transform)
 		matr = io_utils.load_matrix_from_json(json_data['image_plane_matrix'])
 		
-		self.refresh_selection_table()
 		
-		return self.renderer.add_pano_obj(fname_image, matr)
+		
+		obj = self.renderer.add_pano_obj(fname_image, matr)
+		self.refresh_selection_table()
+		return obj 
 				
 	def add_skybox_from_file(self, fname_image):
 		
-		self.refresh_selection_table()
+		fname_image = io_utils.try_convert_to_relative_path(fname_image)
 		
-		return self.renderer.add_skybox(fname_image)
+		obj = self.renderer.add_skybox(fname_image)
+		self.refresh_selection_table()
+		return obj
 		
 	def save_to_file(self, fname):
 		json_data = self.save_to_json()

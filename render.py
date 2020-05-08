@@ -1,6 +1,7 @@
 import moderngl
 import numpy as np
 import pyrr
+import os
 
 from PIL import Image
 
@@ -16,6 +17,7 @@ class Texture_Loader:
 		
 	def load_texture(self, fname):
 		if fname in self.loaded_textures:
+			print('Using cached texture for {}'.format(fname))
 			return self.loaded_textures[fname]
 		else:
 			image = Image.open(fname)
@@ -29,15 +31,16 @@ class Texture_Loader:
 	
 	def load_texture_cube(self, fname):
 		if fname in self.loaded_textures:
+			print('Using cached texture cube for {}'.format(fname))
 			return self.loaded_textures[fname]
 		else:
 			face_fnames = [
-				fname + 'posx.jpg',
-				fname + 'negx.jpg',
-				fname + 'posy.jpg',
-				fname + 'negy.jpg',
-				fname + 'posz.jpg',
-				fname + 'negz.jpg',
+				os.path.join(fname, 'posx.jpg'),
+				os.path.join(fname, 'negx.jpg'),
+				os.path.join(fname, 'posy.jpg'),
+				os.path.join(fname, 'negy.jpg'),
+				os.path.join(fname, 'posz.jpg'),
+				os.path.join(fname, 'negz.jpg'),
 			]
 			
 			face_images = [Image.open(x) for x in face_fnames]
