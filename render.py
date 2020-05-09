@@ -4,9 +4,25 @@ import pyrr
 import os
 
 from PIL import Image
+from PIL import ImageFilter
 
 import random
 import io_utils
+
+def split_image_frequencies(image, kernel_size):
+	image_low = image.filter(ImageFilter.GaussianBlur(kernel_size))
+	
+	image_np = np.asarray(image).astype(np.float32)
+	image_low_np = np.asarray(image_low).astype(np.float32)
+	
+	image_high_np = image_np - image_low_np
+	image_high_np += 255
+	image_high_np /= 2
+	
+	image_high = Image.fromarray(image_high_np.astype(np.uint8))
+	
+	return image_high, image_low
+	
 
 class Texture_Loader:
 	
@@ -15,19 +31,25 @@ class Texture_Loader:
 		
 		self.loaded_textures = {}
 		
-	def load_texture(self, fname):
+	def load_texture(self, fname, model_matr):
 		if fname in self.loaded_textures:
 			print('Using cached texture for {}'.format(fname))
 			return self.loaded_textures[fname]
 		else:
 			image = Image.open(fname)
-			texture = pil_image_to_texture(self.ctx, image)
-			texture.anisotropy = 16.0
-			texture.build_mipmaps()
 			
-			self.loaded_textures[fname] = texture
+			image_high, image_low = split_image_frequencies(image, 6)
 			
-			return texture
+			texture_high = pil_image_to_texture(self.ctx, image_high)
+			texture_high.anisotropy = 16.0
+			texture_high.build_mipmaps()
+			
+			texture_low = pil_image_to_texture(self.ctx, image_low)
+			
+			result = (texture_high, texture_low)
+			
+			self.loaded_textures[fname] = result
+			return result
 	
 	def load_texture_cube(self, fname):
 		if fname in self.loaded_textures:
@@ -57,9 +79,10 @@ class Texture_Loader:
 
 class PanoObj:
 	
-	def __init__(self, custom_name, texture, model_matr, model_matr_rotation, is_skybox, source_fname):
+	def __init__(self, custom_name, texture_high, texture_low, model_matr, model_matr_rotation, is_skybox, source_fname):
 		self.custom_name = custom_name
-		self.texture = texture
+		self.texture_high = texture_high
+		self.texture_low = texture_low
 		self.model_matr = model_matr
 		self.model_matr_rotation = model_matr_rotation
 		self.source_fname = source_fname
@@ -138,7 +161,7 @@ class Renderer:
 		
 	def add_pano_obj(self, fname_image, model_matr=None, model_matr_rot=None, custom_name=None):
 		
-		texture = self.texture_loader.load_texture(fname_image)
+		texture_high, texture_low = self.texture_loader.load_texture(fname_image, model_matr)
 		
 		if model_matr is None:
 			model_matr = np.eye(4)
@@ -147,7 +170,7 @@ class Renderer:
 		if model_matr_rot is None:
 			model_matr_rot = np.eye(4)
 			
-		pano_obj = PanoObj(custom_name, texture, model_matr, model_matr_rot, False, fname_image)
+		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, False, fname_image)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
@@ -162,7 +185,7 @@ class Renderer:
 			custom_name = '{} {}'.format(random.randrange(0,99999), folder_skybox)
 		if model_matr_rot is None:
 			model_matr_rot = np.eye(4)
-		pano_obj = PanoObj(custom_name, texture, model_matr, model_matr_rot, True, folder_skybox)
+		pano_obj = PanoObj(custom_name, texture, None, model_matr, model_matr_rot, True, folder_skybox)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
@@ -219,17 +242,23 @@ class Renderer:
 			fragment_shader='''
 				#version 330
 
-				uniform sampler2D unif_texture;
+				uniform sampler2D unif_texture_high;
+				uniform sampler2D unif_texture_low;
 
 				in vec2 vert_uv;
 
 				out vec4 frag_color;
 
 				void main() {
-					frag_color = texture(unif_texture, vert_uv);
+					vec4 high = (texture(unif_texture_high, vert_uv) * 2) - 1;
+					vec4 low = texture(unif_texture_low, vert_uv);
+				
+					frag_color = high + low;
 				}
 			'''
 		)
+		self.pano_obj_shader_program['unif_texture_high'] = 0
+		self.pano_obj_shader_program['unif_texture_low'] = 1
 		
 	def _init_skybox_shader(self):
 		
@@ -341,12 +370,13 @@ class Renderer:
 			if pano_obj.is_skybox:
 				model_matr_inv = np.linalg.inv(pano_obj.model_matr) @ pano_obj.model_matr_rotation.T
 				self.skybox_shader_program['unif_unprojection'].write((model_matr_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
-				pano_obj.texture.use()
+				pano_obj.texture_high.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
 				matr_mvp = matr_view_proj @ pano_obj.model_matr_rotation @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
-				pano_obj.texture.use()
+				pano_obj.texture_high.use(location=0)
+				pano_obj.texture_low.use(location=1)
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
 
 		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
