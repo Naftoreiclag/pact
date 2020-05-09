@@ -286,11 +286,13 @@ class Renderer:
 	def clone_pano_obj(self, pano_obj_or_skybox):
 		obj = pano_obj_or_skybox
 		
+		base_name = get_base_name(obj.custom_name)
+		
 		# Find an appropriate name
 		all_names = [x.custom_name for x in self.pano_objs]
 		next_name = 1
 		while True:
-			custom_name = 'C{} {}'.format(next_name, obj.custom_name)
+			custom_name = 'C{} {}'.format(next_name, base_name)
 			if custom_name not in all_names:
 				break
 			next_name += 1
@@ -676,8 +678,26 @@ def np_array_to_pil_image(image):
 	scaled = np.clip(scaled, 0, 255)
 	return Image.fromarray(scaled.astype(np.uint8))
 
+def get_base_name(name):
+	if len(name) == 0:
+		return name
+	substr = name.split(' ')
+	first = substr[0]
+	if first[0] != 'C':
+		return name
+	
+	try:
+		int(first[1:])
+	except ValueError:
+		return name
+	return ' '.join(substr[1:])
+
 if __name__ == '__main__':
 	
+	test = get_base_name('C1234 my name')
+	print(test)
+	test = get_base_name('Counter')
+	print(test)
 	for _ in range(10):
 		pitch = np.random.rand() * np.pi - (np.pi/2)
 		yaw = np.random.rand() * np.pi * 2
