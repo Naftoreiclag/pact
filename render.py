@@ -159,10 +159,12 @@ class Texture_Loader:
 
 class PanoObj:
 	
-	def __init__(self, custom_name, texture_high, texture_low, model_matr, model_matr_rotation, is_skybox, source_fname):
+	def __init__(self, custom_name, texture_high, texture_low, model_matr, model_matr_rotation, is_skybox, source_fname, mask_image, mask_texture):
 		self.custom_name = custom_name
 		self.texture_high = texture_high
 		self.texture_low = texture_low
+		self.mask_texture = mask_texture
+		self.mask_image = mask_image
 		self.model_matr = model_matr
 		self.model_matr_rotation = model_matr_rotation
 		self.source_fname = source_fname
@@ -239,7 +241,7 @@ class Renderer:
 		
 		self.view_params = View_Params()
 		
-	def add_pano_obj(self, fname_image, model_matr=None, model_matr_rot=None, custom_name=None):
+	def add_pano_obj(self, fname_image, model_matr=None, model_matr_rot=None, custom_name=None, mask_image=None):
 		
 		texture_high, texture_low = self.texture_loader.load_texture(fname_image, model_matr)
 		
@@ -249,8 +251,12 @@ class Renderer:
 			custom_name = '{} {}'.format(random.randrange(0,99999), fname_image)
 		if model_matr_rot is None:
 			model_matr_rot = np.eye(4)
+		if mask_image is None:
+			mask_image = np.ones((256, 256))
+		
+		mask_texture = pil_image_to_texture(self.ctx, np_array_to_pil_image(mask_image))
 			
-		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, False, fname_image)
+		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, False, fname_image, mask_image, mask_texture)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
@@ -265,7 +271,7 @@ class Renderer:
 			custom_name = '{} {}'.format(random.randrange(0,99999), folder_skybox)
 		if model_matr_rot is None:
 			model_matr_rot = np.eye(4)
-		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, True, folder_skybox)
+		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, True, folder_skybox, None, None)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
@@ -325,6 +331,7 @@ class Renderer:
 				#version 330
 
 				uniform sampler2D unif_texture;
+				uniform sampler2D unif_texture_mask;
 
 				in vec2 vert_uv;
 
@@ -332,11 +339,12 @@ class Renderer:
 
 				void main() {
 					frag_color = texture(unif_texture, vert_uv);
+					frag_color.a *= texture(unif_texture_mask, vert_uv).r;
 				}
 			'''
 		)
-		#self.pano_obj_shader_program['unif_texture_high'] = 0
-		#self.pano_obj_shader_program['unif_texture_low'] = 1
+		self.pano_obj_shader_program['unif_texture'] = 0
+		self.pano_obj_shader_program['unif_texture_mask'] = 1
 		
 	def _init_skybox_shader(self):
 		
@@ -449,15 +457,16 @@ class Renderer:
 		
 		for pano_obj in self.pano_objs:
 			if high_freq:
-				pano_obj.texture_high.use()
+				pano_obj.texture_high.use(0)
 			else:
-				pano_obj.texture_low.use()
+				pano_obj.texture_low.use(0)
 			
 			if pano_obj.is_skybox:
 				model_matr_inv = np.linalg.inv(pano_obj.model_matr) @ pano_obj.model_matr_rotation.T
 				self.skybox_shader_program['unif_unprojection'].write((model_matr_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
+				pano_obj.mask_texture.use(1)
 				matr_mvp = matr_view_proj @ pano_obj.model_matr_rotation @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
@@ -618,12 +627,18 @@ class Single_Image_Renderer:
 	
 def pil_image_to_texture(ctx, image):
 	mode = image.mode
-	if mode == 'RGB':
+	if mode == 'L':
+		return ctx.texture(image.size, 1, image.tobytes())
+	elif mode == 'RGB':
 		return ctx.texture(image.size, 3, image.tobytes())
 	elif mode == 'RGBA':
 		return ctx.texture(image.size, 4, image.tobytes())
 	raise RuntimeError('Unsupported color depth: {}'.format(mode))
 	
+def np_array_to_pil_image(image):
+	scaled = image * 255
+	scaled = np.clip(scaled, 0, 255)
+	return Image.fromarray(scaled.astype(np.uint8))
 
 if __name__ == '__main__':
 	
