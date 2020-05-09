@@ -47,7 +47,6 @@ class Texture_Loader:
 			texture_low = pil_image_to_texture(self.ctx, image_low)
 			
 			result = (texture_high, texture_low)
-			
 			self.loaded_textures[fname] = result
 			return result
 	
@@ -66,13 +65,20 @@ class Texture_Loader:
 			]
 			
 			face_images = [Image.open(x) for x in face_fnames]
-			face_bytes = [x.tobytes() for x in face_images]
+			face_images_hl = [split_image_frequencies(x, 10) for x in face_images]
+			face_images_high = [f[0] for f in face_images_hl]
+			face_images_low = [f[1] for f in face_images_hl]
 			
-			texture = self.ctx.texture_cube(face_images[0].size, 3, b''.join(face_bytes))
 			
-			self.loaded_textures[fname] = texture
+			face_bytes_high = [x.tobytes() for x in face_images_high]
+			face_bytes_low = [x.tobytes() for x in face_images_low]
 			
-			return texture
+			texture_high = self.ctx.texture_cube(face_images_high[0].size, 3, b''.join(face_bytes_high))
+			texture_low = self.ctx.texture_cube(face_images_low[0].size, 3, b''.join(face_bytes_low))
+			
+			result = (texture_high, texture_low)
+			self.loaded_textures[fname] = result
+			return result
 	
 	def clear_all(self):
 		self.loaded_textures.clear()
@@ -177,7 +183,7 @@ class Renderer:
 		
 	def add_skybox(self, folder_skybox, model_matr=None, model_matr_rot=None, custom_name=None):
 		
-		texture = self.texture_loader.load_texture_cube(folder_skybox)
+		texture_high, texture_low = self.texture_loader.load_texture_cube(folder_skybox)
 		
 		if model_matr is None:
 			model_matr = np.eye(4)
@@ -185,7 +191,7 @@ class Renderer:
 			custom_name = '{} {}'.format(random.randrange(0,99999), folder_skybox)
 		if model_matr_rot is None:
 			model_matr_rot = np.eye(4)
-		pano_obj = PanoObj(custom_name, texture, None, model_matr, model_matr_rot, True, folder_skybox)
+		pano_obj = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, True, folder_skybox)
 		self.pano_objs.append(pano_obj)
 		
 		return pano_obj
@@ -197,8 +203,8 @@ class Renderer:
 		matr_proj_inv = np.linalg.inv(matr_proj)
 		
 		ndc = np.array([
-			(canvas_x / self.fbo.width) * 2 - 1,
-			-((canvas_y / self.fbo.height) * 2 - 1),
+			(canvas_x / self.fbo_high.width) * 2 - 1,
+			-((canvas_y / self.fbo_high.height) * 2 - 1),
 			0,
 			1,
 		])
@@ -219,7 +225,8 @@ class Renderer:
 		self.texture_loader.clear_all()
 		
 	def _init_fbo(self, width, height):
-		self.fbo = self.ctx.simple_framebuffer((width, height))
+		self.fbo_high = self.ctx.simple_framebuffer((width, height))
+		self.fbo_low = self.ctx.simple_framebuffer((width, height))
 		
 	def _init_pano_obj_shader(self):
 		
@@ -242,23 +249,19 @@ class Renderer:
 			fragment_shader='''
 				#version 330
 
-				uniform sampler2D unif_texture_high;
-				uniform sampler2D unif_texture_low;
+				uniform sampler2D unif_texture;
 
 				in vec2 vert_uv;
 
 				out vec4 frag_color;
 
 				void main() {
-					vec4 high = (texture(unif_texture_high, vert_uv) * 2) - 1;
-					vec4 low = texture(unif_texture_low, vert_uv);
-				
-					frag_color = high + low;
+					frag_color = texture(unif_texture, vert_uv);
 				}
 			'''
 		)
-		self.pano_obj_shader_program['unif_texture_high'] = 0
-		self.pano_obj_shader_program['unif_texture_low'] = 1
+		#self.pano_obj_shader_program['unif_texture_high'] = 0
+		#self.pano_obj_shader_program['unif_texture_low'] = 1
 		
 	def _init_skybox_shader(self):
 		
@@ -334,17 +337,17 @@ class Renderer:
 		self._init_fbo(new_width, new_height)
 		
 	def get_width(self):
-		return self.fbo.width
+		return self.fbo_high.width
 	def get_height(self):
-		return self.fbo.height
+		return self.fbo_high.height
 
 	def get_world_dir(self, canvas_x, canvas_y):
 		matr_view_proj = self._compute_view_proj_matr()
 		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
 		
 		ndc = np.array([
-			(canvas_x / self.fbo.width) * 2 - 1,
-			-((canvas_y / self.fbo.height) * 2 - 1),
+			(canvas_x / self.fbo_high.width) * 2 - 1,
+			-((canvas_y / self.fbo_high.height) * 2 - 1),
 			0,
 			1,
 		])
@@ -356,31 +359,43 @@ class Renderer:
 		
 		return homo_world_coords
 		
-	def render(self):
-		
+	def _render_layer(self, high_freq):
 		matr_view_proj = self._compute_view_proj_matr()
-
 		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
-
-		self.fbo.use()
-		self.fbo.clear(0.0, 0.0, 0.0, 1.0)
+		
+		if high_freq:
+			self.fbo_high.use()
+			self.fbo_high.clear(0.5, 0.5, 0.5, 1.0)
+		else:
+			self.fbo_low.use()
+			self.fbo_low.clear(0.0, 0.0, 0.0, 1.0)
+			
 		self.ctx.enable(moderngl.BLEND)
 		
 		for pano_obj in self.pano_objs:
+			if high_freq:
+				pano_obj.texture_high.use()
+			else:
+				pano_obj.texture_low.use()
+			
 			if pano_obj.is_skybox:
 				model_matr_inv = np.linalg.inv(pano_obj.model_matr) @ pano_obj.model_matr_rotation.T
 				self.skybox_shader_program['unif_unprojection'].write((model_matr_inv @ matr_view_proj_inv).T.astype(np.float32).tobytes())
-				pano_obj.texture_high.use()
 				self.skybox_vao.render(moderngl.TRIANGLES)
 			else:
 				matr_mvp = matr_view_proj @ pano_obj.model_matr_rotation @ pano_obj.model_matr
 				self.pano_obj_shader_program['unif_mvp'].write(matr_mvp.T.astype(np.float32).tobytes())
-				pano_obj.texture_high.use(location=0)
-				pano_obj.texture_low.use(location=1)
 				self.pano_obj_vao.render(moderngl.TRIANGLES)
 
-		image = Image.frombytes('RGB', self.fbo.size, self.fbo.read(), 'raw', 'RGB', 0, -1)
+		if high_freq:
+			image = Image.frombytes('RGB', self.fbo_high.size, self.fbo_high.read(), 'raw', 'RGB', 0, -1)
+		else:
+			image = Image.frombytes('RGB', self.fbo_low.size, self.fbo_low.read(), 'raw', 'RGB', 0, -1)
 		return image
+		
+	def render(self):
+		
+		return self._render_layer(True)
 
 	def get_vanishing_point_on_canvas(self, direction):
 		
