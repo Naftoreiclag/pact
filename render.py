@@ -9,15 +9,24 @@ from PIL import ImageFilter
 import random
 import io_utils
 
+def generate_mask(image_width, image_height, kernel_size):
+	image_high_np = np.zeros((int(image_height), int(image_width)), dtype=np.unit8)
+	image_high_np[kernel_size:-kernel_size,kernel_size:-kernel_size] = 255
+	image_high = Image.fromarray(image_high_np.astype(np.uint8))
+	image_low = image_high.filter(ImageFilter.GaussianBlur(kernel_size))
+	return image_high, image_low
+
 def split_image_frequencies(image, kernel_size):
 	image_low = image.filter(ImageFilter.GaussianBlur(kernel_size))
 	
 	image_np = np.asarray(image).astype(np.float32)
 	image_low_np = np.asarray(image_low).astype(np.float32)
 	
-	image_high_np = image_np - image_low_np
-	image_high_np += 255
-	image_high_np /= 2
+	image_high_np = np.zeros(image_np.shape)
+	image_high_np[:,:,:3] = ((image_np[:,:,:3] - image_low_np[:,:,:3]) + 255) / 2
+	
+	if image_high_np.shape[2] > 3:
+		image_high_np[:,:,3:] = image_np[:,:,3:]
 	
 	image_high = Image.fromarray(image_high_np.astype(np.uint8))
 	
@@ -406,7 +415,6 @@ class Renderer:
 		
 		image_high = self._render_layer(True)
 		image_low = self._render_layer(False)
-		
 		return combine_image_frequencies(image_high, image_low)
 
 	def get_vanishing_point_on_canvas(self, direction):
