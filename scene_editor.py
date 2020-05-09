@@ -144,7 +144,12 @@ class Mask_Editing_Tool(Editor_Tool):
 		
 		area_of_effect = footprint_mask[distance_to_mouse < 30]
 		
-		obj.mask_image[area_of_effect[:,1],area_of_effect[:,0]] *= 0
+		
+		color = 0
+		if editor.selected_axis == 1:
+			color = 1
+		
+		obj.mask_image[area_of_effect[:,1],area_of_effect[:,0]] = color
 		
 		
 		obj.update_mask_texture()
