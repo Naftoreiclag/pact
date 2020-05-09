@@ -5,7 +5,7 @@ import calibration
 
 def main():
 	tk_root = tkinter.Tk()
-	tk_root.title('hello world')
+	tk_root.title('Perspective-Perfect Photo Collager')
 	
 	tk_root.lift()
 	tk_root.focus()
@@ -15,13 +15,7 @@ def main():
 		
 	ctx = moderngl.create_standalone_context()
 	
-	fname = 'ignore/data/barn.jpg'
-	if True:
-		editor = scene_editor.Scene_Editor(tk_root, ctx)
-		#obj2 = editor.add_skybox_from_file('ignore/Bridge2')
-		#obj = editor.add_pano_obj_from_file(fname)
-	else:
-		editor = calibration.Calibration_Editor(tk_root, ctx, fname)
+	editor = scene_editor.Scene_Editor(tk_root, ctx)
 	
 	tk_root.mainloop()
 
