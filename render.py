@@ -11,6 +11,8 @@ from PIL import ImageFilter
 import random
 import io_utils
 
+EXPERIMENTAL_2_BAND = False
+
 def generate_mask(image_width, image_height, kernel_size):
 	image_high_np = np.zeros((int(image_height), int(image_width)), dtype=np.unit8)
 	image_high_np[kernel_size:-kernel_size,kernel_size:-kernel_size] = 255
@@ -93,15 +95,22 @@ class Texture_Loader:
 		else:
 			image = Image.open(fname)
 			
-			image_high, image_low = split_image_frequencies(image, 100)
-			
-			texture_high = pil_image_to_texture(self.ctx, image_high)
-			texture_high.anisotropy = 16.0
-			texture_high.build_mipmaps()
-			
-			texture_low = pil_image_to_texture(self.ctx, image_low)
-			
-			print('Loaded texture {}'.format(fname))
+			if EXPERIMENTAL_2_BAND:
+				image_high, image_low = split_image_frequencies(image, 100)
+				
+				texture_high = pil_image_to_texture(self.ctx, image_high)
+				texture_high.anisotropy = 16.0
+				texture_high.build_mipmaps()
+				
+				texture_low = pil_image_to_texture(self.ctx, image_low)
+				
+				print('Loaded texture {}'.format(fname))
+			else:
+				texture_high = pil_image_to_texture(self.ctx, image)
+				texture_high.anisotropy = 16.0
+				texture_high.build_mipmaps()
+				
+				texture_low = None
 			
 			result = (texture_high, texture_low)
 			self.loaded_textures[fname] = result
@@ -122,16 +131,22 @@ class Texture_Loader:
 			]
 			
 			face_images = [Image.open(x) for x in face_fnames]
-			face_images_hl = [split_image_frequencies_no_alpha(x, 30) for x in face_images]
-			face_images_high = [f[0] for f in face_images_hl]
-			face_images_low = [f[1] for f in face_images_hl]
 			
-			
-			face_bytes_high = [x.tobytes() for x in face_images_high]
-			face_bytes_low = [x.tobytes() for x in face_images_low]
-			
-			texture_high = self.ctx.texture_cube(face_images_high[0].size, 3, b''.join(face_bytes_high))
-			texture_low = self.ctx.texture_cube(face_images_low[0].size, 3, b''.join(face_bytes_low))
+			if EXPERIMENTAL_2_BAND:
+				face_images_hl = [split_image_frequencies_no_alpha(x, 30) for x in face_images]
+				face_images_high = [f[0] for f in face_images_hl]
+				face_images_low = [f[1] for f in face_images_hl]
+				
+				
+				face_bytes_high = [x.tobytes() for x in face_images_high]
+				face_bytes_low = [x.tobytes() for x in face_images_low]
+				
+				texture_high = self.ctx.texture_cube(face_images_high[0].size, 3, b''.join(face_bytes_high))
+				texture_low = self.ctx.texture_cube(face_images_low[0].size, 3, b''.join(face_bytes_low))
+			else:
+				face_bytes = [x.tobytes() for x in face_images]
+				texture_high = self.ctx.texture_cube(face_images[0].size, 3, b''.join(face_bytes))
+				texture_low = None
 			
 			print('Loaded texture {}'.format(fname))
 			
@@ -285,7 +300,8 @@ class Renderer:
 		
 	def _init_fbo(self, width, height):
 		self.fbo_high = self.ctx.simple_framebuffer((width, height))
-		self.fbo_low = self.ctx.simple_framebuffer((width, height))
+		if EXPERIMENTAL_2_BAND:
+			self.fbo_low = self.ctx.simple_framebuffer((width, height))
 		
 	def _init_pano_obj_shader(self):
 		
@@ -453,11 +469,13 @@ class Renderer:
 		return image
 		
 	def render(self):
-		
-		image_high = self._render_layer(True)
-		#return image_high
-		image_low = self._render_layer(False)
-		return combine_image_frequencies(image_high, image_low)
+		if EXPERIMENTAL_2_BAND:
+			image_high = self._render_layer(True)
+			image_low = self._render_layer(False)
+			return combine_image_frequencies(image_high, image_low)
+		else:
+			image = self._render_layer(True)
+			return image
 
 	def get_vanishing_point_on_canvas(self, direction):
 		
