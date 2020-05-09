@@ -23,6 +23,15 @@ def split_image_frequencies(image, kernel_size):
 	
 	return image_high, image_low
 	
+def combine_image_frequencies(image_high, image_low):
+	image_low_np = np.asarray(image_low).astype(np.float32)
+	image_high_np = np.asarray(image_high).astype(np.float32)
+	
+	image_np = image_low_np + (image_high_np * 2 - 255)
+	image_np = np.clip(image_np, 0, 255)
+	
+	image = Image.fromarray(image_np.astype(np.uint8))
+	return image
 
 class Texture_Loader:
 	
@@ -395,7 +404,10 @@ class Renderer:
 		
 	def render(self):
 		
-		return self._render_layer(True)
+		image_high = self._render_layer(True)
+		image_low = self._render_layer(False)
+		
+		return combine_image_frequencies(image_high, image_low)
 
 	def get_vanishing_point_on_canvas(self, direction):
 		
