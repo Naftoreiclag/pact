@@ -142,30 +142,34 @@ class Mask_Editing_Tool(Editor_Tool):
 		distance_to_mouse = np.linalg.norm(footprint_screen - screen_loc, axis=1)
 		distance_to_mouse[footprint_ndc[:,3] <= 0] = 1e10
 		
-		area_of_effect = footprint_mask[distance_to_mouse < 30]
+		full_rad = 20
+		zero_rad = 40
+		
+		area_of_effect = ((full_rad - distance_to_mouse) / (zero_rad - full_rad)) + 1
+		area_of_effect[distance_to_mouse < full_rad] = 1
+		area_of_effect[distance_to_mouse > zero_rad] = 0
+		
+		area_of_effect = area_of_effect.reshape(obj.mask_image.shape)
 		
 		
 		color = 0
 		if editor.selected_axis == 1:
 			color = 1
 		
-		obj.mask_image[area_of_effect[:,1],area_of_effect[:,0]] = color
-		
-		
-		obj.update_mask_texture()
-		
-		return
+		obj.mask_image = (color * area_of_effect) + (obj.mask_image * (1-area_of_effect))
 		
 	def on_press(self, event, editor):
 		event_loc = np.array((event.x, event.y), dtype=np.float32)
 		for obj in editor.selected_objects:
 			self.erase_circle(obj, editor, event_loc)
+			obj.update_mask_texture()
 		editor.refresh_canvas()
 		
 	def on_drag(self, event, editor):
 		event_loc = np.array((event.x, event.y), dtype=np.float32)
 		for obj in editor.selected_objects:
 			self.erase_circle(obj, editor, event_loc)
+			obj.update_mask_texture()
 		editor.refresh_canvas()
 		
 	def on_release(self, event, editor):
