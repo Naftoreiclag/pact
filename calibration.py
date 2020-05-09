@@ -181,9 +181,9 @@ class Calibration_Editor:
 		self.look_pos = np.zeros(2,)
 		
 		try:
-			load_control_lines_from_json(self.transform_fname)
-		except:
-			pass
+			self.load_from_json(io_utils.json_load(self.transform_fname))
+		except Exception as e:
+			print(e)
 			
 	def setup_interface(self):
 		
