@@ -27,14 +27,14 @@ def split_image_frequencies(image, sigma_size, auto_mask_sigma_size=None):
 	
 	# if there is an alpha channel, split into RGB and A components
 	if image_np.shape[2] > 3:
-		mask_np = image_np[:,:,3]
+		mask_np = image_np[:,:,3].astype(np.float32) / 255
 		image_np = image_np[:,:,:3]
 	else:
 		# generate a mask
 		mask_np = np.zeros(image_np.shape[:2])
-		padding = sigma_size*truncate
+		padding = int(sigma_size*truncate)
 		mask_np[padding:-padding,padding:-padding] = 1
-		#mask_np = skimage.filters.gaussian(mask_np, auto_mask_sigma_size, truncate=truncate)
+		mask_np = skimage.filters.gaussian(mask_np, auto_mask_sigma_size, truncate=truncate)
 		#mask_np[2*kernel_size:-2*kernel_size,2*kernel_size:-2*kernel_size] = 0
 	
 	image_low_np = skimage.filters.gaussian(image_np, sigma_size, truncate=truncate, multichannel=True)
@@ -93,7 +93,7 @@ class Texture_Loader:
 		else:
 			image = Image.open(fname)
 			
-			image_high, image_low = split_image_frequencies(image, 10)
+			image_high, image_low = split_image_frequencies(image, 100)
 			
 			texture_high = pil_image_to_texture(self.ctx, image_high)
 			texture_high.anisotropy = 16.0
@@ -122,7 +122,7 @@ class Texture_Loader:
 			]
 			
 			face_images = [Image.open(x) for x in face_fnames]
-			face_images_hl = [split_image_frequencies_no_alpha(x, 10) for x in face_images]
+			face_images_hl = [split_image_frequencies_no_alpha(x, 30) for x in face_images]
 			face_images_high = [f[0] for f in face_images_hl]
 			face_images_low = [f[1] for f in face_images_hl]
 			
@@ -455,6 +455,7 @@ class Renderer:
 	def render(self):
 		
 		image_high = self._render_layer(True)
+		#return image_high
 		image_low = self._render_layer(False)
 		return combine_image_frequencies(image_high, image_low)
 
