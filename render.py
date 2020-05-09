@@ -283,6 +283,34 @@ class Renderer:
 		
 		return pano_obj
 		
+	def clone_pano_obj(self, pano_obj_or_skybox):
+		obj = pano_obj_or_skybox
+		
+		# Find an appropriate name
+		all_names = [x.custom_name for x in self.pano_objs]
+		next_name = 1
+		while True:
+			custom_name = 'C{} {}'.format(next_name, obj.custom_name)
+			if custom_name not in all_names:
+				break
+			next_name += 1
+		
+		is_skybox = obj.is_skybox
+		model_matr = obj.model_matr.copy()
+		if is_skybox:
+			texture_high, texture_low = self.texture_loader.load_texture_cube(obj.source_fname)
+		else:
+			texture_high, texture_low = self.texture_loader.load_texture(obj.source_fname, model_matr)
+		mask_texture = pil_image_to_texture(self.ctx, np_array_to_pil_image(obj.mask_image))
+		mask_image = obj.mask_image.copy()
+		source_fname = obj.source_fname
+		model_matr_rot = obj.model_matr_rotation.copy()
+		
+		clone = PanoObj(custom_name, texture_high, texture_low, model_matr, model_matr_rot, is_skybox, source_fname, mask_image, mask_texture)
+		
+		self.pano_objs.append(clone)
+		return clone
+		
 	def look_natural(self, anchor_dir, canvas_x, canvas_y):
 		raise NotImplementedError()
 		matr_view = self.compute_view_matr()

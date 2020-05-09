@@ -222,6 +222,8 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar_layer.add_separator()
 		self.tk_menubar_layer.add_command(label='Open calibration tool', command=self._on_user_open_calibration_tool)
 		self.tk_menubar_layer.add_separator()
+		self.tk_menubar_layer.add_command(label='Duplicate selected', command=self._on_user_duplicate_selected)
+		self.tk_menubar_layer.add_separator()
 		self.tk_menubar_layer.add_command(label='Erase selected', command=self._on_user_erase_selected)
 		self.tk_menubar.add_cascade(label='Layer', menu=self.tk_menubar_layer)
 		
@@ -374,6 +376,19 @@ class Scene_Editor(tkinter.Frame):
 			self.selected_objects.clear()
 			self.refresh_canvas()
 			self.refresh_selection_table()
+		
+	def _on_user_duplicate_selected(self):
+		if len(self.selected_objects) == 0:
+			return
+			
+		for obj in self.selected_objects:
+			cloned = self.renderer.clone_pano_obj(obj)
+			matr = np.eye(4)
+			axis = self.selected_axis
+			matr[axis,axis] = -1
+			cloned.apply_world_transform(matr)
+		self.refresh_canvas()
+		self.refresh_selection_table()
 		
 	def refresh_canvas(self):
 		image = self.renderer.render()
