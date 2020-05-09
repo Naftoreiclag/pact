@@ -477,6 +477,8 @@ class Scene_Editor(tkinter.Frame):
 			obj_json['matr'] = io_utils.save_matrix_to_json(obj.model_matr)
 			obj_json['matr_rot'] = io_utils.save_matrix_to_json(obj.model_matr_rotation)
 			obj_json['skybox'] = obj.is_skybox
+			if obj.mask_image is not None:
+				obj_json['mask'] = io_utils.save_image_to_string(obj.mask_image)
 			obj_list.append(obj_json)
 			
 		return json_data
@@ -497,13 +499,20 @@ class Scene_Editor(tkinter.Frame):
 			custom_name = obj_json['name']
 			is_skybox = obj_json['skybox']
 			source_fname = obj_json['src']
+			
+			mask = None
+			if 'mask' in obj_json:
+				mask = io_utils.load_image_from_string(obj_json['mask'])
+			
 			matr = io_utils.load_matrix_from_json(obj_json['matr'])
 			matr_rot = io_utils.load_matrix_from_json(obj_json['matr_rot'])
 			if is_skybox:
 				self.renderer.add_skybox(source_fname, matr, matr_rot, custom_name)
 			else:
-				self.renderer.add_pano_obj(source_fname, matr, matr_rot, custom_name)
+				self.renderer.add_pano_obj(source_fname, matr, matr_rot, custom_name, mask)
+		self.selected_objects.clear()
 		self.refresh_canvas()
+		self.refresh_selection_table()
 	
 	def _on_canvas_press_m2(self, event):
 		self.tk_canvas.focus_set()

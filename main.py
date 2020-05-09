@@ -18,8 +18,8 @@ def main():
 	fname = 'ignore/data/barn.jpg'
 	if True:
 		editor = scene_editor.Scene_Editor(tk_root, ctx)
-		obj2 = editor.add_skybox_from_file('ignore/Bridge2')
-		obj = editor.add_pano_obj_from_file(fname)
+		#obj2 = editor.add_skybox_from_file('ignore/Bridge2')
+		#obj = editor.add_pano_obj_from_file(fname)
 	else:
 		editor = calibration.Calibration_Editor(tk_root, ctx, fname)
 	
