@@ -313,30 +313,6 @@ class Renderer:
 		self.pano_objs.append(clone)
 		return clone
 		
-	def look_natural(self, anchor_dir, canvas_x, canvas_y):
-		raise NotImplementedError()
-		matr_view = self.compute_view_matr()
-		matr_proj = self.compute_proj_matr()
-		matr_proj_inv = np.linalg.inv(matr_proj)
-		
-		ndc = np.array([
-			(canvas_x / self.fbo_high.width) * 2 - 1,
-			-((canvas_y / self.fbo_high.height) * 2 - 1),
-			0,
-			1,
-		])
-		
-		homo_view_coords = matr_proj_inv @ ndc
-		homo_view_coords /= homo_view_coords[3] # Perspective divice
-		homo_view_coords[:3] /= np.linalg.norm(homo_view_coords[:3])
-		homo_view_coords[3] = 0
-		
-		anchor_pitch, anchor_yaw = direction_to_pitch_yaw(anchor_dir)
-		canvas_pitch, canvas_yaw = direction_to_pitch_yaw(homo_view_coords)
-		
-		self.view_params.pitch_rad = -anchor_pitch - canvas_pitch
-		self.view_params.yaw_rad = -anchor_yaw - canvas_yaw
-		
 	def clear_all(self):
 		self.pano_objs.clear()
 		self.texture_loader.clear_all()
@@ -462,7 +438,8 @@ class Renderer:
 		return self.fbo_high.height
 
 	def get_world_dir(self, canvas_x, canvas_y):
-		matr_view_proj = self._compute_view_proj_matr()
+		raise NotImplementedError()
+		matr_view_proj = self.compute_view_proj_matr()
 		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
 		
 		ndc = np.array([
@@ -478,6 +455,91 @@ class Renderer:
 		homo_world_coords[3] = 0
 		
 		return homo_world_coords
+		
+	def get_highlight_bounds_for(self, pano_obj):
+		if pano_obj.is_skybox:
+			return None
+			
+		img_width = self.get_width()
+		img_height = self.get_height()
+		
+		num_samples = 10
+		verts = []
+		verts.extend([x, 0] for x in np.linspace(0, 1, num_samples))
+		verts.extend([0, x] for x in np.linspace(0, 1, num_samples))
+		verts.extend([x, 1] for x in np.linspace(0, 1, num_samples))
+		verts.extend([1, x] for x in np.linspace(0, 1, num_samples))
+		
+		matr_view_proj = self.compute_view_proj_matr()
+		matr_mvp = matr_view_proj @ pano_obj.model_matr_rotation @ pano_obj.model_matr
+		
+		frame_locs = []
+		
+		point = np.zeros(4)
+		point[3] = 1
+		for vert in verts:
+			point[:2] = vert
+			ndc = matr_mvp @ point
+			if ndc[3] <= 0:
+				continue
+			ndc /= ndc[3]
+			
+			# yes, this mutates ndc
+			frame_loc = ndc[:2]
+			frame_loc[1] *= -1
+			frame_loc += 1
+			frame_loc /= 2
+			frame_loc[0] *= img_width
+			frame_loc[1] *= img_height
+			frame_locs.append(frame_loc)
+		
+		if len(frame_locs) == 0:
+			return None
+		
+		frame_locs = np.array(frame_locs)
+		
+		upper_bound = np.max(frame_locs, axis=0)
+		lower_bound = np.min(frame_locs, axis=0)
+		
+		return upper_bound, lower_bound
+				
+		
+	def get_corners_world_pos(self, pano_obj):
+		raise NotImplementedError()
+		if pano_obj.is_skybox:
+			raise RuntimeError('Corners are undefined for skybox objects')
+		
+		vertices = np.array([
+			[0, 0, 0, 1],
+			[0, 1, 0, 1],
+			[1, 0, 0, 1],
+			[1, 1, 0, 1],
+		])
+		
+		result = np.zeros((4, 4))
+		
+		matr = pano_obj.model_matr_rotation @ pano_obj.model_matr
+		for idx, vertex in enumerate(vertices):
+			result[idx] = matr @ vertex
+			
+		return result
+		
+	def get_canvas_loc(self, world_pos):
+		raise NotImplementedError()
+		matr_view_proj = self.compute_view_proj_matr()
+		
+		if len(world_pos) != 4:
+			homo = np.zeros(4,)
+			homo[:3] = world_pos
+			homo[3] = 1
+		
+		ndc = matr_view_proj @ world_pos
+		
+		frame = ndc / ndc[3]
+		frame[1] *= -1
+		
+		
+		
 		
 	def _render_layer(self, high_freq):
 		matr_view_proj = self.compute_view_proj_matr()

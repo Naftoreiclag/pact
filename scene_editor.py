@@ -261,10 +261,12 @@ class Scene_Editor(tkinter.Frame):
 	def _select_object_no_refresh(self, pano_obj):
 		if pano_obj not in self.selected_objects:
 			self.selected_objects.append(pano_obj)
+		self.refresh_canvas()
 			
 	def _deselect_object_no_refresh(self, pano_obj):
 		if pano_obj in self.selected_objects:
 			self.selected_objects.remove(pano_obj)
+		self.refresh_canvas()
 		
 	def select_object(self, pano_obj):
 		self._select_object_no_refresh(pano_obj)
@@ -417,6 +419,20 @@ class Scene_Editor(tkinter.Frame):
 				
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
+					
+		for obj in self.selected_objects:
+			aabb = self.renderer.get_highlight_bounds_for(obj)
+			if aabb is None:
+				continue
+				
+			upper, lower = aabb
+			
+			for color, width in (('black', 4), ('yellow', 2)):
+				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], upper[1]], [lower[0], upper[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], lower[1]], [lower[0], lower[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], upper[1]], [upper[0], lower[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [lower[0], upper[1]], [lower[0], lower[1]], fill=color, width=width)
+			
 				
 	def _on_user_open_calibration_tool(self):
 		fname = tkinter.filedialog.askopenfilename(filetypes=(('Images', '*.*'),))
