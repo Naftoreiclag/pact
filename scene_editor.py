@@ -103,7 +103,76 @@ class Axis_Aligned_Rotation_Tool(Editor_Tool):
 		
 	def on_release(self, event, editor):
 		self.prev_xy = np.zeros((2, ))
+		
+class Mask_Editing_Tool(Editor_Tool):
 	
+	def __init__(self):
+		pass
+		
+	def erase_circle(self, obj, editor, screen_loc):
+		if obj.mask_image is None:
+			return
+		
+		screen_width = editor.renderer.get_width()
+		screen_height = editor.renderer.get_height()
+		
+		mask_shape = np.array(obj.mask_image.shape)
+		
+		a = np.meshgrid(np.arange(0, mask_shape[0]), np.arange(0, mask_shape[1]))
+		b = np.array([a[0].flatten(), a[1].flatten()]).T
+		footprint_mask = b
+		
+		footprint_uv = footprint_mask / mask_shape
+		footprint_uv = np.hstack([footprint_uv, np.zeros(footprint_uv.shape)])
+		footprint_uv[:,3] = 1
+		
+		footprint_ndc = (editor.renderer.compute_view_proj_matr() @ obj.model_matr_rotation @ obj.model_matr @ footprint_uv.T).T
+		
+		footprint_ndc = (footprint_ndc.T/footprint_ndc[:,3].T).T
+		footprint_screen = footprint_ndc
+		footprint_screen[:,1] *= -1
+		footprint_screen = footprint_screen[:,:2]
+		footprint_screen = (footprint_screen+1)/2
+		footprint_screen[:,0] *= screen_width
+		footprint_screen[:,1] *= screen_height
+		
+		distance_to_mouse = np.linalg.norm(footprint_screen - screen_loc, axis=1)
+		
+		print(np.min(distance_to_mouse))
+		
+		#obj.mask_image[footprint_mask.T] *= 0
+		
+		#obj.mask_image[50:-50,50:-50] = 0
+		
+		
+		
+		obj.update_mask_texture()
+		
+		return
+		
+		print(footprint_mask)
+		
+		ndc_coords = screen_loc
+		ndc_coords[0] /= editor.renderer.get_width()
+		ndc_coords[1] /= -editor.renderer.get_height()
+		ndc_coords = ndc_coords * 2 - 1
+		
+		
+		
+	def on_press(self, event, editor):
+		event_loc = np.array((event.x, event.y), dtype=np.float32)
+		for obj in editor.selected_objects:
+			self.erase_circle(obj, editor, event_loc)
+		editor.refresh_canvas()
+		
+	def on_drag(self, event, editor):
+		event_loc = np.array((event.x, event.y), dtype=np.float32)
+		for obj in editor.selected_objects:
+			self.erase_circle(obj, editor, event_loc)
+		editor.refresh_canvas()
+		
+	def on_release(self, event, editor):
+		pass
 
 class Scene_Editor(tkinter.Frame):
 	def __init__(self, tk_master, opengl_context):
@@ -111,12 +180,18 @@ class Scene_Editor(tkinter.Frame):
 		
 		self.tk_master = tk_master
 		self.renderer = render.Renderer(opengl_context)
+		self.tools = [
+			(Camera_Pan_Tool(), 'Pan'),
+			(Axis_Aligned_Scaling_Tool(), 'AA-Scale'),
+			(Axis_Aligned_Rotation_Tool(), 'AA-Rot'),
+			(Mask_Editing_Tool(), 'Masking'),
+		]
 		self.setup_interface()
 		
 		self.current_scene_fname = None
 		
-		self.selected_m1_tool = Axis_Aligned_Rotation_Tool()
-		self.selected_m2_tool = Camera_Pan_Tool()
+		self.selected_m2_tool = self.tools[0][0]
+		self.selected_m1_tool = self.tools[1][0]
 		
 		self.selected_axis = 0
 		self.selected_objects = []
@@ -197,16 +272,16 @@ class Scene_Editor(tkinter.Frame):
 		button_row = 0
 		button_col = 0
 		
-		def make_tool_button(tool_class, label):
+		def make_tool_button(tool_instance, label):
 			nonlocal button_row
 			
 			def wrapper_fun():
-				self.selected_m1_tool = tool_class()
+				self.selected_m1_tool = tool_instance
 			tkinter.Button(frame, text=label, command=wrapper_fun).grid(row=button_row, column=button_col)
 			button_row += 1
 			
-		make_tool_button(Axis_Aligned_Scaling_Tool, 'AA-scale')
-		make_tool_button(Axis_Aligned_Rotation_Tool, 'AA-rot')
+		for tool, label in self.tools:
+			make_tool_button(tool, label)
 	
 	def _add_quick_buttons(self):
 		frame = self.tk_quick_button_frame

@@ -181,6 +181,9 @@ class PanoObj:
 	def apply_world_rotation(self, rot_matr):
 		self.model_matr_rotation = rot_matr @ self.model_matr_rotation
 		
+	def update_mask_texture(self):
+		self.mask_texture.write(np_array_to_pil_image(self.mask_image).tobytes())
+		
 
 class View_Params:
 	def __init__(self, pitch_rad=0, yaw_rad=0, fov=90):
@@ -253,6 +256,10 @@ class Renderer:
 			model_matr_rot = np.eye(4)
 		if mask_image is None:
 			mask_image = np.ones((256, 256))
+			mask_image[:,0] = 0
+			mask_image[0,:] = 0
+			mask_image[:,-1] = 0
+			mask_image[-1,:] = 0
 		
 		mask_texture = pil_image_to_texture(self.ctx, np_array_to_pil_image(mask_image))
 			
@@ -278,8 +285,8 @@ class Renderer:
 		
 	def look_natural(self, anchor_dir, canvas_x, canvas_y):
 		raise NotImplementedError()
-		matr_view = self._compute_view_matr()
-		matr_proj = self._compute_proj_matr()
+		matr_view = self.compute_view_matr()
+		matr_proj = self.compute_proj_matr()
 		matr_proj_inv = np.linalg.inv(matr_proj)
 		
 		ndc = np.array([
@@ -404,15 +411,15 @@ class Renderer:
 		vbo = self.ctx.buffer(vert_buff.astype(np.float32).tobytes())
 		self.skybox_vao = self.ctx.simple_vertex_array(self.skybox_shader_program, vbo, 'in_pos')
 		
-	def _compute_view_matr(self):
+	def compute_view_matr(self):
 		return self.view_params.compute_view_matr()
 		
-	def _compute_proj_matr(self):
+	def compute_proj_matr(self):
 		return pyrr.matrix44.create_perspective_projection_matrix(self.view_params.fov, self.get_width() / self.get_height(), 0.1, 100.0).T
 		
-	def _compute_view_proj_matr(self):
-		matr_proj = self._compute_proj_matr()
-		matr_view = self._compute_view_matr()
+	def compute_view_proj_matr(self):
+		matr_proj = self.compute_proj_matr()
+		matr_view = self.compute_view_matr()
 		matr_view_proj = matr_proj @ matr_view
 		return matr_view_proj
 			
@@ -443,7 +450,7 @@ class Renderer:
 		return homo_world_coords
 		
 	def _render_layer(self, high_freq):
-		matr_view_proj = self._compute_view_proj_matr()
+		matr_view_proj = self.compute_view_proj_matr()
 		matr_view_proj_inv = np.linalg.inv(matr_view_proj)
 		
 		if high_freq:
@@ -488,7 +495,7 @@ class Renderer:
 
 	def get_vanishing_point_on_canvas(self, direction):
 		
-		matr_view_proj = self._compute_view_proj_matr()
+		matr_view_proj = self.compute_view_proj_matr()
 		
 		large = 10000
 		
