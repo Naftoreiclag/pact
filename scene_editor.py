@@ -126,38 +126,30 @@ class Mask_Editing_Tool(Editor_Tool):
 		footprint_uv = np.hstack([footprint_uv, np.zeros(footprint_uv.shape)])
 		footprint_uv[:,3] = 1
 		
-		footprint_ndc = (editor.renderer.compute_view_proj_matr() @ obj.model_matr_rotation @ obj.model_matr @ footprint_uv.T).T
+		matr_view_proj = editor.renderer.compute_view_proj_matr()
+		matr_mvp = matr_view_proj @ obj.model_matr_rotation @ obj.model_matr
+		footprint_ndc = (matr_mvp @ footprint_uv.T).T
 		
-		footprint_ndc = (footprint_ndc.T/footprint_ndc[:,3].T).T
-		footprint_screen = footprint_ndc
+		footprint_screen = (footprint_ndc.T/footprint_ndc[:,3].T).T
 		footprint_screen[:,1] *= -1
 		footprint_screen = footprint_screen[:,:2]
 		footprint_screen = (footprint_screen+1)/2
 		footprint_screen[:,0] *= screen_width
 		footprint_screen[:,1] *= screen_height
 		
+		# circle-specific
+		
 		distance_to_mouse = np.linalg.norm(footprint_screen - screen_loc, axis=1)
+		distance_to_mouse[footprint_ndc[:,3] <= 0] = 1e10
 		
-		print(np.min(distance_to_mouse))
+		area_of_effect = footprint_mask[distance_to_mouse < 30]
 		
-		#obj.mask_image[footprint_mask.T] *= 0
-		
-		#obj.mask_image[50:-50,50:-50] = 0
-		
+		obj.mask_image[area_of_effect[:,1],area_of_effect[:,0]] *= 0
 		
 		
 		obj.update_mask_texture()
 		
 		return
-		
-		print(footprint_mask)
-		
-		ndc_coords = screen_loc
-		ndc_coords[0] /= editor.renderer.get_width()
-		ndc_coords[1] /= -editor.renderer.get_height()
-		ndc_coords = ndc_coords * 2 - 1
-		
-		
 		
 	def on_press(self, event, editor):
 		event_loc = np.array((event.x, event.y), dtype=np.float32)
