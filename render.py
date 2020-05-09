@@ -562,10 +562,10 @@ class Single_Image_Renderer:
 
 				in vec2 vert_uv;
 
-				out vec3 frag_color;
+				out vec4 frag_color;
 
 				void main() {
-					frag_color = texture(unif_texture, vert_uv).xyz;
+					frag_color = texture(unif_texture, vert_uv);
 				}
 			'''
 		)
@@ -611,6 +611,7 @@ class Single_Image_Renderer:
 		
 		self.fbo.use()
 		self.fbo.clear(0.5, 0.5, 0.5, 1.0)
+		self.ctx.enable(moderngl.BLEND)
 		
 		matr_transform = np.eye(4)
 		matr_transform[0, 3] = (self.image_draw_point[0] / self.get_width()) * 2 - 1

@@ -147,12 +147,18 @@ def compute_fov_minimizing_point(vanishing_points, image_width, image_height):
 	
 class Calibration_Editor:
 	
-	def __init__(self, tk_master, opengl_context, image_fname, save_data=None):
+	def __init__(self, tk_master, opengl_context, image_fname):
 		
 		self.image_fname = image_fname
 		self.image = Image.open(image_fname)
 		self.image_dimensions = np.array((self.image.width, self.image.height))
 		self.tk_master = tk_master
+		
+		
+		fname_leafless, fname_leaf = os.path.splitext(self.image_fname)
+		fname_transform = fname_leafless + '.json'
+		self.transform_fname = fname_transform
+		
 		self.setup_interface()
 		
 		
@@ -174,9 +180,10 @@ class Calibration_Editor:
 		
 		self.look_pos = np.zeros(2,)
 		
-		
-		if save_data is not None:
-			self.load_from_json(save_data)
+		try:
+			load_control_lines_from_json(self.transform_fname)
+		except:
+			pass
 			
 	def setup_interface(self):
 		
@@ -194,18 +201,15 @@ class Calibration_Editor:
 		self.tk_canvas.bind('<B1-Motion>', self._on_canvas_drag_m1)
 		self.tk_canvas.bind('<ButtonRelease-1>', self._on_canvas_release_m1)
 		self.tk_canvas.bind('<MouseWheel>', self._on_canvas_mousewheel)
-		
-		fname_leafless, fname_leaf = os.path.splitext(self.image_fname)
-		fname_transform = fname_leafless + '.json'
 	
 		def on_button_save():
 			json_data = self.save_to_json()
-			io_utils.json_save(json_data, fname_transform)
-			print('Save to {}'.format(fname_transform))
+			io_utils.json_save(json_data, self.transform_fname)
+			print('Save to {}'.format(self.transform_fname))
 		def on_button_load():
-			json_data = io_utils.json_load(fname_transform)
+			json_data = io_utils.json_load(self.transform_fname)
 			self.load_from_json(json_data)
-			print('Load from {}'.format(fname_transform))
+			print('Load from {}'.format(self.transform_fname))
 			
 		button1 = tkinter.Button(self.tk_master, text='save', command=on_button_save)
 		button1.pack()
@@ -311,14 +315,13 @@ class Calibration_Editor:
 		if num_points == 3:
 			self.centroid_preview, cam_dist = compute_centroid(self.intersection_points)
 			if cam_dist is None:
-				smallest_idx = np.argmin(singular_values)
+				smallest_idx = np.argmin(singular_vals)
 				self.intersection_points[smallest_idx] = None
 				num_points -= 1
+				self.centroid_preview = None
 		
 		if num_points == 2:
 			self.centroid_preview, _ = compute_fov_minimizing_point(self.intersection_points, self.image_dimensions[0], self.image_dimensions[1])
-		else:
-			self.centroid_preview = None
 		
 	def _on_canvas_drag_m2(self, event):
 		new_pos = np.array((event.x, event.y))

@@ -12,6 +12,8 @@ import io_utils
 import pyrr
 import draw_utils
 
+import calibration
+
 
 class Editor_Tool:
 		
@@ -215,7 +217,10 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
 		
 		self.tk_menubar_layer = tkinter.Menu(self.tk_menubar)
-		self.tk_menubar_layer.add_command(label='Add from file', command=self._on_user_add_from_file)
+		self.tk_menubar_layer.add_command(label='Add photo', command=self._on_user_add_from_file)
+		self.tk_menubar_layer.add_command(label='Add skybox', command=self._on_user_add_skybox_from_folder)
+		self.tk_menubar_layer.add_separator()
+		self.tk_menubar_layer.add_command(label='Open calibration tool', command=self._on_user_open_calibration_tool)
 		self.tk_menubar_layer.add_separator()
 		self.tk_menubar_layer.add_command(label='Erase selected', command=self._on_user_erase_selected)
 		self.tk_menubar.add_cascade(label='Layer', menu=self.tk_menubar_layer)
@@ -339,6 +344,14 @@ class Scene_Editor(tkinter.Frame):
 		self.refresh_canvas()
 		self.refresh_selection_table()
 		
+	def _on_user_add_skybox_from_folder(self):
+		print('User requested add skybox from file')
+		fname = tkinter.filedialog.askdirectory()
+		print('fname = {}'.format(fname))
+		self.add_skybox_from_file(fname)
+		self.refresh_canvas()
+		self.refresh_selection_table()
+		
 	def _on_user_save_as(self):
 		print('User requested save as')
 		fname = tkinter.filedialog.asksaveasfilename(filetypes=(('JSON scenes', '*.json'),))
@@ -389,6 +402,17 @@ class Scene_Editor(tkinter.Frame):
 				
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 6, fill='black')
 					draw_utils.draw_disk(self.tk_canvas, draw_at, 5, fill=color)
+				
+	def _on_user_open_calibration_tool(self):
+		fname = tkinter.filedialog.askopenfilename(filetypes=(('Images', '*.*'),))
+		print('fname = {}'.format(fname))
+		
+		try:
+			tk_window = tkinter.Toplevel()
+			tk_window.title('Calibration Edtior')
+			editor = calibration.Calibration_Editor(tk_window, self.renderer.ctx, fname)
+		except:
+			tk_window.destroy()
 				
 	def refresh_selection_table(self):
 		
