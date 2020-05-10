@@ -213,6 +213,8 @@ class Scene_Editor(tkinter.Frame):
 		self.tk_menubar_file.add_command(label='Save', command=self._on_user_save)
 		self.tk_menubar_file.add_command(label='Save as...', command=self._on_user_save_as)
 		self.tk_menubar_file.add_separator()
+		self.tk_menubar_file.add_command(label='Export', command=self._on_user_export_to_cubemap)
+		self.tk_menubar_file.add_separator()
 		self.tk_menubar_file.add_command(label='Exit', command=self._on_user_request_exit)
 		self.tk_menubar.add_cascade(label='File', menu=self.tk_menubar_file)
 		
@@ -391,6 +393,30 @@ class Scene_Editor(tkinter.Frame):
 			cloned.apply_world_transform(matr)
 		self.refresh_canvas()
 		self.refresh_selection_table()
+		
+	def _on_user_export_to_cubemap(self):
+		
+		res = 1024
+		
+		self.renderer.resize(res, res)
+		self.renderer.fov = 90
+		
+		
+		ninety = 3.1415926 / 2
+		directions = [
+			(0 * ninety, 0 * ninety, 'f'),
+			(0 * ninety, 1 * ninety, 'r'),
+			(0 * ninety, 2 * ninety, 'b'),
+			(0 * ninety, 3 * ninety, 'l'),
+			(1 * ninety, 0 * ninety, 'u'),
+			(-1 * ninety, 0 * ninety, 'd'),
+		]
+		
+		for pitch, yaw, name in directions:
+			self.renderer.view_params.pitch_rad = pitch
+			self.renderer.view_params.yaw_rad = yaw
+			image = self.renderer.render()
+			image.save(name + '.jpg', 'JPEG')
 		
 	def refresh_canvas(self):
 		image = self.renderer.render()
