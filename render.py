@@ -489,6 +489,12 @@ class Renderer:
 			frame_loc[1] *= -1
 			frame_loc += 1
 			frame_loc /= 2
+			
+			if np.any(frame_loc < -0.2):
+				continue
+			if np.any(frame_loc > 1.2):
+				continue
+			
 			frame_loc[0] *= img_width
 			frame_loc[1] *= img_height
 			frame_locs.append(frame_loc)

@@ -426,12 +426,18 @@ class Scene_Editor(tkinter.Frame):
 				continue
 				
 			upper, lower = aabb
+			#draw_utils.draw_line_segment(self.tk_canvas, [upper[0], upper[1]], [lower[0], lower[1]], fill='yellow', width=1)
+			#draw_utils.draw_line_segment(self.tk_canvas, [lower[0], upper[1]], [upper[0], lower[1]], fill='yellow', width=1)
 			
-			for color, width in (('black', 4), ('yellow', 2)):
-				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], upper[1]], [lower[0], upper[1]], fill=color, width=width)
-				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], lower[1]], [lower[0], lower[1]], fill=color, width=width)
-				draw_utils.draw_line_segment(self.tk_canvas, [upper[0], upper[1]], [upper[0], lower[1]], fill=color, width=width)
-				draw_utils.draw_line_segment(self.tk_canvas, [lower[0], upper[1]], [lower[0], lower[1]], fill=color, width=width)
+			for color, width, mar in (('black', 6, 0), ('yellow', 4, 0), ('black', 3, 7), ('yellow', 1, 7)):
+				
+				upperp = upper - mar
+				lowerp = lower + mar
+				
+				draw_utils.draw_line_segment(self.tk_canvas, [upperp[0], upperp[1]], [lowerp[0], upperp[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [upperp[0], lowerp[1]], [lowerp[0], lowerp[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [upperp[0], upperp[1]], [upperp[0], lowerp[1]], fill=color, width=width)
+				draw_utils.draw_line_segment(self.tk_canvas, [lowerp[0], upperp[1]], [lowerp[0], lowerp[1]], fill=color, width=width)
 			
 				
 	def _on_user_open_calibration_tool(self):
