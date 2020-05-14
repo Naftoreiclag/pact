@@ -1,4 +1,4 @@
-# Perspective Aware Collaging Tool
+# Perspective-Aware Collaging Tool
 
 The following libraries are needed:
 + `moderngl`
