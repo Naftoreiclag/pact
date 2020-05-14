@@ -5,7 +5,7 @@ import calibration
 
 def main():
 	tk_root = tkinter.Tk()
-	tk_root.title('Perspective-Perfect Photo Collager')
+	tk_root.title('Perspective-Aware Photo Collaging Tool')
 	
 	tk_root.lift()
 	tk_root.focus()
