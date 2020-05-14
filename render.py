@@ -2,8 +2,6 @@ import moderngl
 import numpy as np
 import pyrr
 import os
-import skimage.filters
-import skimage.io
 
 from PIL import Image
 from PIL import ImageFilter
