@@ -6,7 +6,7 @@ The following libraries are needed:
 + `numpy`
 + `pyrr`
 
-Requires OpenGL 3.
+Requires OpenGL ≥3.3
 
 (Tested only on MacOS as of writing. However, since it only uses Python's built-in `tkinter` for GUI, there should be minimal issues running on other platforms.)
 
